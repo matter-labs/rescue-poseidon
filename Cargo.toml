@@ -10,7 +10,7 @@ edition = "2018"
 # bellman = {package = "bellman_ce", path = "../bellman" }
 # TODO: update deps git to package
 # franklin_crypto = {package = "franklin-crypto", git = "https://github.com/matter-labs/franklin-crypto", branc = "dev"}
-franklin_crypto = {package = "franklin-crypto", path = "../franklin-crypto"}
+franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
 num-bigint = "0.3"
 num-integer = "0.1"
 num-iter = "0.1"
