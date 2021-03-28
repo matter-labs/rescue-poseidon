@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! stateful_transcript {
     ($transcrit_name:ty, $hasher_path:expr) => {
-        impl<E: Engine> Prng<E::Fr> for $transcrit_name {
+        impl<E: Engine, const S: usize, const R: usize> Prng<E::Fr> for $transcrit_name {
             type Input = E::Fr;
 
             type InitializationParameters = ();
@@ -13,15 +13,18 @@ macro_rules! stateful_transcript {
             }
 
             fn commit_input(&mut self, input: &Self::Input) {
-                self.sponge.absorb(*input);
+                // TODO:
+                self.sponge.absorb(&[*input]);
             }
 
             fn get_challenge(&mut self) -> E::Fr {
-                self.sponge.squeeze_single()
+                // TODO
+                // self.sponge.squeeze_single()
+                self.sponge.squeeze(None)[0]
             }
         }
 
-        impl<E: Engine> Transcript<E::Fr> for $transcrit_name {
+        impl<E: Engine, const S: usize, const R: usize> Transcript<E::Fr> for $transcrit_name {
             fn commit_bytes(&mut self, _: &[u8]) {
                 unimplemented!()
             }

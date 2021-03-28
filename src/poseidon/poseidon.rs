@@ -11,59 +11,61 @@ use franklin_crypto::bellman::pairing::Engine;
 /// This hash function received fixed length inputs and outputs
 /// number of elements as equal to rate parameter.
 /// This function apply fixed length padding strategy.
-pub fn poseidon_hash_fixed_length<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, PoseidonHasher<E>>(
+pub fn poseidon_hash_fixed_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
+    generic_hash_with_padding::<E, PoseidonHasher<E, S, R>, S, R>(
         input,
-        PaddingStrategy::FixedLength(input.len()),
+        PaddingStrategy::FixedLength,
     )
 }
 
 /// A poseidon hash funciton outputs number of elements as equal to rate parameter
 /// This function apply fixed length padding strategy.
-pub fn poseidon_var_length<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, PoseidonHasher<E>>(
+pub fn poseidon_var_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
+    generic_hash_with_padding::<E, PoseidonHasher<E, S, R>, S, R>(
         input,
-        PaddingStrategy::VariableLength(input.len()),
+        PaddingStrategy::VariableLength,
     )
 }
 
 /// This is hasher with a custom strategy which basically sets value of capacity
-pub fn poseidon_hash<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, PoseidonHasher<E>>(input, PaddingStrategy::Custom(input.len()))
+pub fn poseidon_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
+    // generic_hash_with_padding::<E, PoseidonHasher<E, S, R>,S, R>(input, PaddingStrategy::Custom(input.len()))
+    generic_hash_with_padding::<E, PoseidonHasher<E, S, R>,S, R>(input, PaddingStrategy::NoPadding)
 }
 
 #[derive(Clone, Debug)]
-pub struct PoseidonHasher<E: Engine> {
+pub struct PoseidonHasher<E: Engine, const S: usize, const R: usize> {
     params: HasherParams<E>,
-    state: Vec<E::Fr>,
+    state: [E::Fr; S],
     tmp_storage: Vec<E::Fr>,
     alpha: E::Fr,
     optimized_round_constants: Vec<Vec<E::Fr>>,
     optimized_mds_matrixes: (Vec<Vec<E::Fr>>, Vec<Vec<Vec<E::Fr>>>),
-    sponge_mode: SpongeModes<E>,
+    sponge_mode: SpongeModes,
 }
 
-impl<E: Engine> Default for PoseidonHasher<E> {
+impl<E: Engine, const S: usize, const R: usize> Default for PoseidonHasher<E, S, R> {
     fn default() -> Self {
         let (params, alpha, optimized_round_constants, optimized_mds_matrixes) =
             super::params::poseidon_light_params();
         Self {
-            state: vec![E::Fr::zero(); params.state_width],
+            state: [E::Fr::zero(); S],
             tmp_storage: Vec::with_capacity(params.rate),
             alpha,
             params,
             optimized_round_constants,
             optimized_mds_matrixes,
-            sponge_mode: SpongeModes::Standard,
+            // TODO
+            sponge_mode: SpongeModes::Standard(false),
         }
     }
 }
-impl<E: Engine> PoseidonHasher<E> {
-    pub fn new(sponge_mode: SpongeModes<E>) -> Self {
+impl<E: Engine, const S: usize, const R: usize> PoseidonHasher<E, S, R> {
+    pub fn new(sponge_mode: SpongeModes) -> Self {
         let (params, alpha, optimized_round_constants, optimized_mds_matrixes) =
             super::params::poseidon_light_params();
         Self {
-            state: vec![E::Fr::zero(); params.state_width],
+            state: [E::Fr::zero(); S],
             tmp_storage: Vec::with_capacity(params.rate),
             alpha,
             params,
@@ -75,9 +77,9 @@ impl<E: Engine> PoseidonHasher<E> {
 }
 
 // Implementation of common parts
-sponge_impl!(PoseidonHasher<E>);
+sponge_impl!(PoseidonHasher<E, S, R>);
 
-impl<E: Engine> SpongePermutation<E> for PoseidonHasher<E> {
+impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for PoseidonHasher<E, S, R> {
     fn permutation(&mut self) {
         debug_assert!(self.params.full_rounds & 1 == 0);
         let half_of_full_rounds = self.params.full_rounds / 2;

@@ -8,59 +8,60 @@ use franklin_crypto::bellman::pairing::Engine;
 
 /// The capacity value is length x (264 ) + (o − 1) where o the output length.
 /// The padding consists of the field elements being 0.
-pub fn rescue_prime_fixed_length<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescuePrimeHasher<E>>(
+pub fn rescue_prime_fixed_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
+    generic_hash_with_padding::<E, RescuePrimeHasher<E, S, R>, S, R>(
         input,
-        PaddingStrategy::FixedLength(input.len()),
+        PaddingStrategy::FixedLength,
     )
 }
 
 /// The capacity value is 264 + (o − 1) where o the output length.
 /// The padding consists of one field element being 1, and the remaining elements being 0.
-pub fn rescue_prime_var_length<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescuePrimeHasher<E>>(
+pub fn rescue_prime_var_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
+    generic_hash_with_padding::<E, RescuePrimeHasher<E, S, R>,S, R>(
         input,
-        PaddingStrategy::VariableLength(input.len()),
+        PaddingStrategy::VariableLength,
     )
 }
 
 /// This is hasher with a custom strategy which basically sets value of capacity
-pub fn rescue_prime_hash<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescuePrimeHasher<E>>(
+pub fn rescue_prime_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
+    generic_hash_with_padding::<E, RescuePrimeHasher<E, S, R>,S, R>(
         input,
-        PaddingStrategy::Custom(input.len()),
+        PaddingStrategy::Custom,
     )
 }
 
 #[derive(Debug, Clone)]
-pub struct RescuePrimeHasher<E: Engine> {
+pub struct RescuePrimeHasher<E: Engine, const S: usize, const R: usize> {
     params: HasherParams<E>,
-    state: Vec<E::Fr>,
+    state: [E::Fr; S],
     tmp_storage: Vec<E::Fr>,
     alpha: E::Fr,
     alpha_inv: E::Fr,
-    sponge_mode: SpongeModes<E>,
+    sponge_mode: SpongeModes,
 }
 
-impl<E: Engine> Default for RescuePrimeHasher<E> {
+impl<E: Engine, const S: usize, const R: usize> Default for RescuePrimeHasher<E, S, R> {
     fn default() -> Self {
         let (params, alpha, alpha_inv) = crate::rescue_prime::params::rescue_prime_params();
         Self {
-            state: vec![E::Fr::zero(); params.state_width],
+            state: [E::Fr::zero(); S],
             tmp_storage: Vec::with_capacity(params.rate),
             params,
             alpha,
             alpha_inv,
-            sponge_mode: SpongeModes::Standard,
+            // TODO
+            sponge_mode: SpongeModes::Standard(false),
         }
     }
 }
 
 // common parts of sponge
-sponge_impl!(RescuePrimeHasher<E>);
+sponge_impl!(RescuePrimeHasher<E, S, R>);
 // sponge_impl!(RescuePrimeHasher<E>, super::params::rescue_prime_params);
 
-impl<E: Engine> SpongePermutation<E> for RescuePrimeHasher<E> {
+impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescuePrimeHasher<E,S, R> {
     fn permutation(&mut self) {
         for round in 0..self.params.full_rounds {
             // sbox alpha

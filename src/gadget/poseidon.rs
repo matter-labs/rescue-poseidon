@@ -31,7 +31,7 @@ where
     super::hash::generic_hash::<E, _, PoseidonGadget<E>>(
         cs,
         input,
-        PaddingStrategy::FixedLength(input.len()),
+        PaddingStrategy::FixedLength,
     )
 }
 
@@ -50,7 +50,7 @@ where
     super::hash::generic_hash::<E, _, PoseidonGadget<E>>(
         cs,
         input,
-        PaddingStrategy::VariableLength(input.len()),
+        PaddingStrategy::VariableLength,
     )
 }
 
@@ -64,7 +64,7 @@ where
     super::hash::generic_hash::<E, _, PoseidonGadget<E>>(
         cs,
         input,
-        PaddingStrategy::Custom(input.len()),
+        PaddingStrategy::Custom,
     )
 }
 /// Stateful poseidon 
@@ -234,10 +234,12 @@ mod test {
         println!("last step number {}", cs.get_current_step_number());
 
         // poseidon_light original
-        let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256>::default();
+        let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256, 3, 2>::default();
         // let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256>::default();
-        poseidon_light.absorb_multi(&input);
-        let output = poseidon_light.squeeze();
+        // TODO: 
+        // poseidon_light.absorb_multi(&input);
+        poseidon_light.absorb(&input);
+        let output = poseidon_light.squeeze(None);
 
         for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
             assert_eq!(gadget.get_value().unwrap(), *sponge);

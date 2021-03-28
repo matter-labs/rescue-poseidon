@@ -17,22 +17,25 @@ mod test {
 
     #[bench]
     fn bench_poseidon_round_function(b: &mut Bencher) {
-        let mut hasher = PoseidonHasher::<Bn256>::default();
+        let mut hasher = PoseidonHasher::<Bn256, 3, 2>::default();
 
-        b.iter(|| hasher.absorb_multi(&test_inputs()))
+        // b.iter(|| hasher.absorb_multi(&test_inputs()))
+        b.iter(|| hasher.absorb(&test_inputs()))
     }
 
     #[bench]
     fn bench_rescue_round_function(b: &mut Bencher) {
-        let mut hasher = RescueHasher::<Bn256>::default();
+        let mut hasher = RescueHasher::<Bn256, 3, 2>::default();
 
-        b.iter(|| hasher.absorb_multi(&test_inputs()))
+        // b.iter(|| hasher.absorb_multi(&test_inputs()))
+        b.iter(|| hasher.absorb(&test_inputs()))
     }
     #[bench]
     fn bench_rescue_prime_round_function(b: &mut Bencher) {
-        let mut hasher = RescuePrimeHasher::<Bn256>::default();
+        let mut hasher = RescuePrimeHasher::<Bn256, 3, 2>::default();
 
-        b.iter(|| hasher.absorb_multi(&test_inputs()))
+        // b.iter(|| hasher.absorb_multi(&test_inputs()))
+        b.iter(|| hasher.absorb(&test_inputs()))
     }
 
     #[bench]

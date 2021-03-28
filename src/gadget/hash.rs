@@ -15,13 +15,13 @@ pub(crate) fn generic_hash<E: Engine, CS: ConstraintSystem<E>, S: StatefulSponge
     let mut sponge = S::default();
     let rate = sponge.rate();
 
-    let capacity_value = padding_strategy.compute_capacity::<E>(rate).map(|el| {
+    let capacity_value = padding_strategy.compute_capacity::<E>(input.len(), rate).map(|el| {
         let mut lc = LinearCombination::zero();
         lc.add_assign_constant(el);
         lc
     });
     let padding_values = padding_strategy
-        .generate_padding_values::<E>(rate)
+        .generate_padding_values::<E>(input.len(), rate)
         .iter()
         .map(|el| Num::Constant(*el))
         .collect::<Vec<Num<E>>>();

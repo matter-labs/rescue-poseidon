@@ -26,7 +26,7 @@ where
     super::hash::generic_hash::<E, _, RescuePrimeGadget<E>>(
         cs,
         input,
-        PaddingStrategy::FixedLength(input.len()),
+        PaddingStrategy::FixedLength,
     )
 }
 
@@ -41,7 +41,7 @@ where
     super::hash::generic_hash::<E, _, RescuePrimeGadget<E>>(
         cs,
         input,
-        PaddingStrategy::VariableLength(input.len()),
+        PaddingStrategy::VariableLength,
     )
 }
 
@@ -56,7 +56,7 @@ where
     super::hash::generic_hash::<E, _, RescuePrimeGadget<E>>(
         cs,
         input,
-        PaddingStrategy::Custom(input.len()),
+        PaddingStrategy::Custom,
     )
 }
 
@@ -177,9 +177,13 @@ mod test {
         println!("last step number {}", cs.get_current_step_number());
 
         // rescue prime original
-        let mut rescue_prime = crate::rescue_prime::RescuePrimeHasher::<Bn256>::default();
-        rescue_prime.absorb_multi(&inputs);
-        let output = rescue_prime.squeeze();
+        let mut rescue_prime = crate::rescue_prime::RescuePrimeHasher::<Bn256, 3, 2>::default();
+        // TODO
+        // rescue_prime.absorb_multi(&inputs);
+        rescue_prime.absorb(&inputs);
+        // let output = rescue_prime.squeeze();
+        let output = rescue_prime.squeeze(None);
+
 
         for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
             assert_eq!(gadget.get_value().unwrap(), *sponge);

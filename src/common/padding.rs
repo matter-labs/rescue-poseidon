@@ -8,24 +8,24 @@ use franklin_crypto::bellman::{Engine, Field, PrimeField};
 pub enum PaddingStrategy {
     // The capacity value is length x (^264 ) + (o − 1)
     // where o the output length. The padding consists of the field elements being 0.
-    FixedLength(usize),
+    FixedLength,
     /// Padding is necessary for variable-length inputs, even if the input is already
     /// a multiple of the rate in length.
     // The capacity value is 2^64 + (o − 1) where o the output length.
     // The padding consists of one field element being 1,
     // and the remaining elements being 0
-    VariableLength(usize),
+    VariableLength,
     // zksync uses a custom specialization which basically sets value of capacity element
     // to te input length. The only difference from variable length strategy, this is applied 
     // when input length is not multiple of rate param.
-    Custom(usize),
+    Custom,
     // No specialization and padding rule.
     NoPadding,
 }
 
 impl PaddingStrategy {
     /// Computes capacity value for specialization and domain seperation.
-    pub(crate) fn compute_capacity<E: Engine>(&self, rate: usize) -> Option<E::Fr> {
+    pub(crate) fn compute_capacity<E: Engine>(&self, input_len: usize, rate: usize) -> Option<E::Fr> {
         let mut repr = <E::Fr as PrimeField>::Repr::default();
         repr.as_mut()[1] = 1u64; // 2^64 corresponds second le limb
         let mut el = E::Fr::from_repr(repr).unwrap();
@@ -35,24 +35,24 @@ impl PaddingStrategy {
         let out_el = E::Fr::from_repr(repr).unwrap();
 
         match &self {
-            Self::FixedLength(length) => {
+            Self::FixedLength => {
                 // length * 2^64 + (o-1)
                 // since we always use output length equals rate
-                let length_as_fe = E::Fr::from_str(&length.to_string()).unwrap();
+                let length_as_fe = E::Fr::from_str(&input_len.to_string()).unwrap();
                 el.mul_assign(&length_as_fe);
                 el.add_assign(&out_el);
 
                 Some(el)
             }
-            Self::VariableLength(_) => {
+            Self::VariableLength => {
                 // 2^64 + (o-1)
                 el.add_assign(&out_el);
 
                 Some(el)
             }
-            Self::Custom(length) => {
+            Self::Custom => {
                 let mut repr = <E::Fr as PrimeField>::Repr::default();
-                repr.as_mut()[0] = *length as u64;
+                repr.as_mut()[0] = input_len as u64;
 
                 E::Fr::from_repr(repr).ok()
             }
@@ -60,22 +60,22 @@ impl PaddingStrategy {
         }
     }
     /// Computes values for padding.
-    pub(crate) fn generate_padding_values<E: Engine>(&self, rate: usize) -> Vec<E::Fr> {
+    pub(crate) fn generate_padding_values<E: Engine>(&self, input_len: usize, rate: usize) -> Vec<E::Fr> {
         let mut values_for_padding = vec![];
         match &self {
-            Self::FixedLength(input_len) => {
+            Self::FixedLength => {
                 values_for_padding.resize(rate - input_len, E::Fr::zero());
 
                 values_for_padding
             }
-            Self::VariableLength(_) => {
+            Self::VariableLength => {
                 values_for_padding.push(E::Fr::one());
                 while values_for_padding.len() % rate != 0 {
                     values_for_padding.push(E::Fr::zero());
                 }
                 values_for_padding
             }
-            Self::Custom(input_len) => {
+            Self::Custom => {
                 if rate - input_len > 0 {
                     values_for_padding.push(E::Fr::one());
                 }

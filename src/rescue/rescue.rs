@@ -1,62 +1,68 @@
-use crate::{common::{
+use crate::common::{
     hash::generic_hash_with_padding, matrix::mmul_assign, padding::PaddingStrategy, sbox::sbox,
-}};
-use crate::sponge::{SpongeParams, SpongePermutation, SpongeState, SpongeMode, SpongeModes, StatefulSponge};
+};
+use crate::sponge::{
+    SpongeMode, SpongeModes, SpongeParams, SpongePermutation, SpongeState, StatefulSponge,
+};
 use crate::sponge_impl;
 use crate::HasherParams;
 use franklin_crypto::bellman::{Engine, Field};
 /// The capacity value is length x (264 ) + (o − 1) where o the output length.
 /// The padding consists of the field elements being 0.
-pub fn rescue_fixed_length<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E>>(
+pub fn rescue_hash_fixed_length<E: Engine, const S: usize, const R: usize>(
+    input: &[E::Fr],
+) -> Vec<E::Fr> {
+    generic_hash_with_padding::<E, RescueHasher<E, S, R>, S, R>(
         input,
-        PaddingStrategy::FixedLength(input.len()),
+        PaddingStrategy::FixedLength,
     )
 }
 
 /// The capacity value is 264 + (o − 1) where o the output length.
 /// The padding consists of one field element being 1, and the remaining elements being 0.
-pub fn rescue_var_length<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E>>(
+pub fn rescue_var_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
+    generic_hash_with_padding::<E, RescueHasher<E, S, R>,S, R>(
         input,
-        PaddingStrategy::VariableLength(input.len()),
+        PaddingStrategy::VariableLength,
     )
 }
 
 /// This is hasher with a custom strategy which basically sets value of capacity
-pub fn rescue_hash<E: Engine>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E>>(input, PaddingStrategy::Custom(input.len()))
+pub fn rescue_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
+    generic_hash_with_padding::<E, RescueHasher<E, S, R>,S, R>(input, PaddingStrategy::Custom)
 }
 
+
 #[derive(Debug, Clone)]
-pub struct RescueHasher<E: Engine> {
+pub struct RescueHasher<E: Engine, const S: usize, const R: usize> {
     params: HasherParams<E>,
-    state: Vec<E::Fr>,
+    state: [E::Fr; S],
     tmp_storage: Vec<E::Fr>,
     alpha: E::Fr,
     alpha_inv: E::Fr,
-    sponge_mode: SpongeModes<E>,
+    sponge_mode: SpongeModes,
 }
 
-impl<E: Engine> Default for RescueHasher<E> {
+impl<E: Engine, const S: usize, const R: usize> Default for RescueHasher<E, S, R> {
     fn default() -> Self {
         let (params, alpha, alpha_inv) = super::params::rescue_params();
         Self {
-            state: vec![E::Fr::zero(); params.state_width],
+            state: [E::Fr::zero(); S],
             tmp_storage: Vec::with_capacity(params.rate),
             params,
             alpha,
             alpha_inv: alpha_inv.expect("inverse of alpha"),
-            sponge_mode: SpongeModes::Standard,
+            // TODO
+            sponge_mode: SpongeModes::Standard(false),
         }
     }
 }
 
-impl<E: Engine> RescueHasher<E> {
-    pub fn new(sponge_mode: SpongeModes<E>) -> Self {
+impl<E: Engine, const S: usize, const R: usize> RescueHasher<E, S, R> {
+    pub fn new(sponge_mode: SpongeModes) -> Self {
         let (params, alpha, alpha_inv) = super::params::rescue_params();
         Self {
-            state: vec![E::Fr::zero(); params.state_width],
+            state: [E::Fr::zero(); S],
             tmp_storage: Vec::with_capacity(params.rate),
             alpha,
             alpha_inv: alpha_inv.expect("inverse of alpha"),
@@ -64,13 +70,22 @@ impl<E: Engine> RescueHasher<E> {
             sponge_mode,
         }
     }
+
+    pub fn new_duplex() -> Self {
+        Self::new(SpongeModes::Duplex(false))
+    }
+
+    pub fn new_sponge() -> Self {
+        // TODO
+        Self::new(SpongeModes::Standard(false))
+    }
 }
 
 // common parts of sponge
-sponge_impl!(RescueHasher<E>);
+sponge_impl!(RescueHasher<E, S, R>);
 // sponge_impl!(RescueHasher<E>, super::params::rescue_params);
 
-impl<E: Engine> SpongePermutation<E> for RescueHasher<E> {
+impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescueHasher<E, S, R> {
     fn permutation(&mut self) {
         // round constants for first step
         self.state

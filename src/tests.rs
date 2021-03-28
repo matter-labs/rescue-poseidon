@@ -14,7 +14,7 @@ use poseidon_hash::StatefulSponge as PoseidonSponge;
 use poseidon_hash::{
     bn256::Bn256PoseidonParams, PoseidonHashParams, StatefulSponge as StatefulSpongeOld,
 };
-use rand::{SeedableRng, XorShiftRng, Rand};
+use rand::{Rand, SeedableRng, XorShiftRng};
 
 pub(crate) fn init_rng() -> XorShiftRng {
     XorShiftRng::from_seed(crate::common::TEST_SEED)
@@ -23,6 +23,7 @@ pub(crate) fn init_cs<E: Engine>(
 ) -> TrivialAssembly<E, Width4WithCustomGates, Width4MainGateWithDNext> {
     TrivialAssembly::<E, Width4WithCustomGates, Width4MainGateWithDNext>::new()
 }
+
 #[test]
 fn test_rescue_bn256_fixed_length() {
     let rng = &mut init_rng();
@@ -31,9 +32,10 @@ fn test_rescue_bn256_fixed_length() {
     let old_params = Bn256RescueParams::new_checked_2_into_1();
     let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
 
-    let actual = crate::rescue::rescue_hash::<Bn256>(&input);
+    let actual = crate::rescue::rescue_hash::<Bn256, 3, 2>(&input);
     assert_eq!(expected[0], actual[0]);
 }
+
 #[test]
 fn test_poseidon_bn256_fixed_length() {
     let rng = &mut init_rng();
@@ -42,7 +44,7 @@ fn test_poseidon_bn256_fixed_length() {
     let old_params = Bn256PoseidonParams::new_checked_2_into_1();
     let expected = poseidon_hash::poseidon_hash::<Bn256>(&old_params, &input);
 
-    let actual = crate::poseidon::poseidon_hash::<Bn256>(&input);
+    let actual = crate::poseidon::poseidon_hash::<Bn256, 3, 2>(&input);
     assert_eq!(expected[0], actual[0]);
 }
 
@@ -102,9 +104,9 @@ fn test_poseidon_comparisons_with_original_one() {
     original_poseidon.absorb(&input);
     let expected = original_poseidon.squeeze_out_single();
 
-    let mut hasher = PoseidonHasher::<Bn256>::default();
-    hasher.absorb_multi(&input);
-    let actual = hasher.squeeze();
+    let mut hasher = PoseidonHasher::<Bn256, 3, 2>::default();
+    hasher.absorb(&input);
+    let actual = hasher.squeeze(None);
 
     assert_eq!(actual[0], expected);
 }
@@ -121,9 +123,9 @@ fn test_rescue_comparisons_with_original_one() {
     original_rescue.absorb(&input);
     let expected = original_rescue.squeeze_out_single();
 
-    let mut hasher = RescueHasher::<Bn256>::default();
-    hasher.absorb_multi(&input);
-    let actual = hasher.squeeze();
+    let mut hasher = RescueHasher::<Bn256, 3, 2>::default();
+    hasher.absorb(&input);
+    let actual = hasher.squeeze(None);
 
     assert_eq!(actual[0], expected);
 }
@@ -141,11 +143,12 @@ fn test_poseidon_duplex() {
     original_poseidon.absorb_single_value(input[0]);
     let expected = original_poseidon.squeeze_out_single();
 
-    let mut hasher = PoseidonHasher::<Bn256>::new(SpongeModes::Duplex(vec![]));
-    hasher.absorb(input[0]);
-    let actual = hasher.squeeze_single();
+    let mut hasher = PoseidonHasher::<Bn256, 3, 2>::new(SpongeModes::Duplex(false));
+    // TODO
+    hasher.absorb(&input);
+    let actual = hasher.squeeze(None);
 
-    assert_eq!(actual, expected);
+    assert_eq!(actual[0], expected);
 }
 
 #[test]
@@ -164,11 +167,39 @@ fn test_rescue_duplex() {
     expected[0] = original_rescue.squeeze_out_single();
     expected[1] = original_rescue.squeeze_out_single();
 
-    let mut hasher = RescueHasher::<Bn256>::new(SpongeModes::Duplex(Vec::with_capacity(2)));
-    hasher.absorb(input[0]);
-    let mut actual = vec![Fr::zero(); 2];
-    actual[0] = hasher.squeeze_single();
-    actual[1] = hasher.squeeze_single();
+    let mut hasher = RescueHasher::<Bn256, 3, 2>::new(SpongeModes::Duplex(false));
+    // TODO
+    // hasher.absorb(input[0]);
+    hasher.absorb(&input);
+    // let actual = vec![Fr::zero(); 2];
+    let actual = hasher.squeeze(None);
 
     assert_eq!(actual, expected);
+}
+
+#[test]
+#[should_panic]
+fn test_sponge_phase_absorb() {
+    let mut sponge = RescueHasher::<Bn256, 3, 2>::new_sponge();
+
+    sponge.absorb(&[Fr::one(); 2]);
+    sponge.absorb(&[Fr::one(); 2]);
+}
+
+#[test]
+#[should_panic]
+fn test_sponge_phase_squeeze() {
+    let mut sponge = RescueHasher::<Bn256, 3, 2>::new_sponge();
+
+    sponge.squeeze(None);
+}
+
+#[test]
+fn test_iterator_zip() {
+    let aa = vec![1, 2];
+    let bb = vec![1, 2, 3];
+
+    for (a, b) in aa.iter().zip(bb) {
+        println!("a {}, b{}", a, b);
+    }
 }

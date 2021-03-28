@@ -28,7 +28,7 @@ where
     super::hash::generic_hash::<E, _, RescueGadget<E>>(
         cs,
         input,
-        PaddingStrategy::FixedLength(input.len()),
+        PaddingStrategy::FixedLength,
     )
 }
 
@@ -43,7 +43,7 @@ where
     super::hash::generic_hash::<E, _, RescueGadget<E>>(
         cs,
         input,
-        PaddingStrategy::VariableLength(input.len()),
+        PaddingStrategy::VariableLength,
     )
 }
 
@@ -55,7 +55,7 @@ where
     super::hash::generic_hash::<E, _, RescueGadget<E>>(
         cs,
         input,
-        PaddingStrategy::Custom(input.len()),
+        PaddingStrategy::Custom,
     )
 }
 
@@ -169,9 +169,12 @@ mod test {
         println!("last step number {}", cs.get_current_step_number());
 
         // rescue original
-        let mut rescue = crate::rescue::RescueHasher::<Bn256>::default();
-        rescue.absorb_multi(&inputs);
-        let output = rescue.squeeze();
+        let mut rescue = crate::rescue::RescueHasher::<Bn256, 3, 2>::default();
+        // rescue.absorb_multi(&inputs);
+        // TODO:
+        rescue.absorb(&inputs);
+        // let output = rescue.squeeze();
+        let output = rescue.squeeze(None);
 
         for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
             assert_eq!(gadget.get_value().unwrap(), *sponge);
