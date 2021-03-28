@@ -4,7 +4,7 @@ use crate::sponge_impl;
 use crate::{common::hash::generic_hash_with_padding, HasherParams};
 use crate::{
     common::sbox::sbox,
-    sponge::{SpongeParams, SpongePermutation, SpongeState, SpongeMode, SpongeModes, StatefulSponge},
+    sponge::{SpongePermutation, SpongeState, SpongeMode, SpongeModes, StatefulSponge},
 };
 use franklin_crypto::bellman::pairing::ff::Field;
 use franklin_crypto::bellman::pairing::Engine;
@@ -35,12 +35,11 @@ pub fn poseidon_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr])
 
 #[derive(Clone, Debug)]
 pub struct PoseidonHasher<E: Engine, const S: usize, const R: usize> {
-    params: HasherParams<E>,
+    params: HasherParams<E, R, S>,
     state: [E::Fr; S],
-    tmp_storage: Vec<E::Fr>,
     alpha: E::Fr,
-    optimized_round_constants: Vec<Vec<E::Fr>>,
-    optimized_mds_matrixes: (Vec<Vec<E::Fr>>, Vec<Vec<Vec<E::Fr>>>),
+    optimized_round_constants: Vec<[E::Fr; S]>,
+    optimized_mds_matrixes: ([[E::Fr; S]; S], Vec<[[E::Fr; S]; S]>),
     sponge_mode: SpongeModes,
 }
 
@@ -50,7 +49,6 @@ impl<E: Engine, const S: usize, const R: usize> Default for PoseidonHasher<E, S,
             super::params::poseidon_light_params();
         Self {
             state: [E::Fr::zero(); S],
-            tmp_storage: Vec::with_capacity(params.rate),
             alpha,
             params,
             optimized_round_constants,
@@ -66,7 +64,6 @@ impl<E: Engine, const S: usize, const R: usize> PoseidonHasher<E, S, R> {
             super::params::poseidon_light_params();
         Self {
             state: [E::Fr::zero(); S],
-            tmp_storage: Vec::with_capacity(params.rate),
             alpha,
             params,
             optimized_round_constants,
@@ -84,7 +81,7 @@ impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for Poseido
         debug_assert!(self.params.full_rounds & 1 == 0);
         let half_of_full_rounds = self.params.full_rounds / 2;
 
-        let mut mds_result = vec![E::Fr::zero(); self.params.state_width];
+        let mut mds_result = [E::Fr::zero(); S];
         // full rounds
         for round in 0..half_of_full_rounds {
             // add round constatnts
@@ -98,7 +95,7 @@ impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for Poseido
             // apply sbox
             sbox::<E>(self.alpha, &mut self.state);
             // mul state by mds
-            mmul_assign::<E>(&self.params.mds_matrix, &mut self.state);
+            mmul_assign::<E, S>(&self.params.mds_matrix, &mut self.state);
         }
 
         // partial rounds
@@ -109,13 +106,13 @@ impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for Poseido
             .iter_mut()
             .zip(self.optimized_round_constants[half_of_full_rounds].iter())
             .for_each(|(s, c)| s.add_assign(c));
-        mmul_assign::<E>(&self.optimized_mds_matrixes.0, &mut self.state);
+        mmul_assign::<E, S>(&self.optimized_mds_matrixes.0, &mut self.state);
 
         // this is an unrolled version of partial rounds
         for (round_constants, sparse_matrix) in self.optimized_round_constants
             [half_of_full_rounds + 1..half_of_full_rounds + self.params.partial_rounds]
             .iter()
-            .chain(&[vec![E::Fr::zero(); self.params.state_width]])
+            .chain(&[[E::Fr::zero(); S]])
             .zip(self.optimized_mds_matrixes.1.iter())
         {
             let mut quad = self.state[0];
@@ -161,7 +158,7 @@ impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for Poseido
             sbox::<E>(self.alpha, &mut self.state);
 
             // mul state by mds
-            mmul_assign::<E>(&self.params.mds_matrix, &mut self.state);
+            mmul_assign::<E, S>(&self.params.mds_matrix, &mut self.state);
         }
     }
 }

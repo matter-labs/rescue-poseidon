@@ -2,25 +2,20 @@ use franklin_crypto::bellman::{Engine, PrimeField};
 
 use crate::HasherParams;
 
-pub fn rescue_params<E: Engine>() -> (HasherParams<E>, E::Fr, Option<E::Fr>) {
-    let rate = 2;
-    let capacity = 1;
-    let state_width = rate + capacity;
+pub fn rescue_params<E: Engine, const RATE: usize, const STATE_WIDTH: usize>() -> (HasherParams<E, RATE, STATE_WIDTH>, E::Fr, Option<E::Fr>) {
     let full_rounds = 22;
     let security_level = 126;
 
-    let mut params = HasherParams::new(
-        rate,
-        capacity,
+    let mut params = HasherParams::new(        
         security_level,
         full_rounds,
         0,
     );
 
-    let number_of_round_constants = (1 + 2 * full_rounds) * state_width;
+    // let number_of_round_constants = (1 + 2 * full_rounds) * STATE_WIDTH;
     let rounds_tag = b"Rescue_f";
     let _mds_tag = b"ResM0003";
-    params.compute_round_constants(number_of_round_constants, rounds_tag);
+    params.compute_round_constants(full_rounds, rounds_tag);
     params.compute_mds_matrix_for_rescue();
 
     let alpha_u64 = 5u64;
@@ -29,3 +24,5 @@ pub fn rescue_params<E: Engine>() -> (HasherParams<E>, E::Fr, Option<E::Fr>) {
 
     (params, alpha, alpha_inv)
 }
+
+

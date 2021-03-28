@@ -8,6 +8,7 @@ extern crate num_traits;
 use self::num_bigint::{BigInt, BigUint};
 use self::num_integer::{ExtendedGcd, Integer};
 use self::num_traits::{One, ToPrimitive, Zero};
+use std::convert::TryInto;
 
 // Batch inverses vector of elements required for MDS matrix.
 pub(crate) fn batch_inversion<E: Engine>(v: &mut [E::Fr]) {
@@ -61,8 +62,10 @@ pub(crate) fn scalar_product<E: Engine>(a: &[E::Fr], b: &[E::Fr]) -> E::Fr {
 }
 
 // Construct MDS matrix which required by lineary layer of permutation function.
-pub(crate) fn construct_mds_matrix<E: Engine, R: Rng>(state_width: usize, rng: &mut R) -> Vec<E::Fr> {
-    let state_width = state_width;
+pub(crate) fn construct_mds_matrix<E: Engine, R: Rng, const S: usize>(
+    rng: &mut R,
+) -> [[E::Fr; S]; S] {
+    let state_width = S;
 
     loop {
         let x: Vec<E::Fr> = (0..state_width).map(|_| rng.gen()).collect();
@@ -138,7 +141,14 @@ pub(crate) fn construct_mds_matrix<E: Engine, R: Rng>(state_width: usize, rng: &
         // now we need to do the inverse
         batch_inversion::<E>(&mut mds_matrix[..]);
 
-        return mds_matrix;
+        let mut result = [[E::Fr::zero(); S]; S];
+
+        mds_matrix
+            .chunks_exact(S)
+            .zip(result.iter_mut())
+            .for_each(|(values, row)| *row = values.try_into().expect("row in const"));
+
+        return result;
     }
 }
 

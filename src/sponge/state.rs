@@ -21,10 +21,6 @@ macro_rules! sponge_impl {
             fn update_mode(&mut self, mode: SpongeModes){
                 self.sponge_mode = mode;
             }
-
-            fn mode_as_mut(&mut self) -> &mut SpongeModes{
-                &mut self.sponge_mode
-            }
         }
     };
 }

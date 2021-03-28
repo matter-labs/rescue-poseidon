@@ -26,32 +26,40 @@ pub(crate) fn init_cs<E: Engine>(
 
 #[test]
 fn test_rescue_bn256_fixed_length() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
     let rng = &mut init_rng();
     let input = (0..2).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
 
     let old_params = Bn256RescueParams::new_checked_2_into_1();
     let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
 
-    let actual = crate::rescue::rescue_hash::<Bn256, 3, 2>(&input);
+    let actual = crate::rescue::rescue_hash::<Bn256, RATE, STATE_WIDTH>(&input);
     assert_eq!(expected[0], actual[0]);
 }
 
 #[test]
 fn test_poseidon_bn256_fixed_length() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
     let rng = &mut init_rng();
     let input = (0..2).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
 
     let old_params = Bn256PoseidonParams::new_checked_2_into_1();
     let expected = poseidon_hash::poseidon_hash::<Bn256>(&old_params, &input);
 
-    let actual = crate::poseidon::poseidon_hash::<Bn256, 3, 2>(&input);
+    let actual = crate::poseidon::poseidon_hash::<Bn256, RATE, STATE_WIDTH>(&input);
     assert_eq!(expected[0], actual[0]);
 }
 
 #[test]
 fn test_rescue_params() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
     let old_params = Bn256RescueParams::new_checked_2_into_1();
-    let (new_params, _, _) = crate::rescue::params::rescue_params::<Bn256>();
+    
+    let (new_params, _, _) = crate::rescue::params::rescue_params::<Bn256, RATE, STATE_WIDTH>();
 
     let number_of_rounds = new_params.full_rounds;
 
@@ -62,7 +70,7 @@ fn test_rescue_params() {
         )
     }
 
-    for row in 0..new_params.state_width {
+    for row in 0..STATE_WIDTH {
         assert_eq!(
             old_params.mds_matrix_row(row as u32),
             new_params.mds_matrix[row]
@@ -72,8 +80,11 @@ fn test_rescue_params() {
 
 #[test]
 fn test_poseidon_params() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
     let old_params = Bn256PoseidonParams::new_checked_2_into_1();
-    let (new_params, _) = crate::poseidon::params::poseidon_params::<Bn256>();
+    let (new_params, _) = crate::poseidon::params::poseidon_params::<Bn256, RATE, STATE_WIDTH>();
 
     let number_of_rounds = new_params.full_rounds;
 
@@ -84,7 +95,7 @@ fn test_poseidon_params() {
         )
     }
 
-    for row in 0..new_params.state_width {
+    for row in 0..STATE_WIDTH {
         assert_eq!(
             old_params.mds_matrix_row(row as u32),
             new_params.mds_matrix[row]
@@ -94,6 +105,8 @@ fn test_poseidon_params() {
 
 #[test]
 fn test_poseidon_comparisons_with_original_one() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
     let mut el = Fr::one();
     el.double();
 
@@ -104,7 +117,7 @@ fn test_poseidon_comparisons_with_original_one() {
     original_poseidon.absorb(&input);
     let expected = original_poseidon.squeeze_out_single();
 
-    let mut hasher = PoseidonHasher::<Bn256, 3, 2>::default();
+    let mut hasher = PoseidonHasher::<Bn256, RATE, STATE_WIDTH>::default();
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
 
@@ -113,6 +126,8 @@ fn test_poseidon_comparisons_with_original_one() {
 
 #[test]
 fn test_rescue_comparisons_with_original_one() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
     let mut el = Fr::one();
     el.double();
 
@@ -123,7 +138,7 @@ fn test_rescue_comparisons_with_original_one() {
     original_rescue.absorb(&input);
     let expected = original_rescue.squeeze_out_single();
 
-    let mut hasher = RescueHasher::<Bn256, 3, 2>::default();
+    let mut hasher = RescueHasher::<Bn256, RATE, STATE_WIDTH>::default();
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
 
@@ -132,6 +147,8 @@ fn test_rescue_comparisons_with_original_one() {
 
 #[test]
 fn test_poseidon_duplex() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
     use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
     let mut el = Fr::one();
     el.double();
@@ -143,7 +160,7 @@ fn test_poseidon_duplex() {
     original_poseidon.absorb_single_value(input[0]);
     let expected = original_poseidon.squeeze_out_single();
 
-    let mut hasher = PoseidonHasher::<Bn256, 3, 2>::new(SpongeModes::Duplex(false));
+    let mut hasher = PoseidonHasher::<Bn256, RATE, STATE_WIDTH>::new(SpongeModes::Duplex(false));
     // TODO
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
@@ -153,6 +170,8 @@ fn test_poseidon_duplex() {
 
 #[test]
 fn test_rescue_duplex() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
     use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
     let mut el = Fr::one();
     el.double();
@@ -167,7 +186,7 @@ fn test_rescue_duplex() {
     expected[0] = original_rescue.squeeze_out_single();
     expected[1] = original_rescue.squeeze_out_single();
 
-    let mut hasher = RescueHasher::<Bn256, 3, 2>::new(SpongeModes::Duplex(false));
+    let mut hasher = RescueHasher::<Bn256, RATE, STATE_WIDTH>::new(SpongeModes::Duplex(false));
     // TODO
     // hasher.absorb(input[0]);
     hasher.absorb(&input);
@@ -180,7 +199,9 @@ fn test_rescue_duplex() {
 #[test]
 #[should_panic]
 fn test_sponge_phase_absorb() {
-    let mut sponge = RescueHasher::<Bn256, 3, 2>::new_sponge();
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+    let mut sponge = RescueHasher::<Bn256, RATE, STATE_WIDTH>::new_sponge();
 
     sponge.absorb(&[Fr::one(); 2]);
     sponge.absorb(&[Fr::one(); 2]);
@@ -189,13 +210,17 @@ fn test_sponge_phase_absorb() {
 #[test]
 #[should_panic]
 fn test_sponge_phase_squeeze() {
-    let mut sponge = RescueHasher::<Bn256, 3, 2>::new_sponge();
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+    let mut sponge = RescueHasher::<Bn256, RATE, STATE_WIDTH>::new_sponge();
 
     sponge.squeeze(None);
 }
 
 #[test]
 fn test_iterator_zip() {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
     let aa = vec![1, 2];
     let bb = vec![1, 2, 3];
 

@@ -3,47 +3,50 @@ use std::ops::Range;
 
 // We can reduce cost of each partial round by using an optimization from
 // original paper. Appendix-B explains details.
-pub(crate) fn compute_optimized_matrixes<E: Engine>(
+pub(crate) fn compute_optimized_matrixes<E: Engine, const DIM: usize, const SUBDIM: usize>(
     number_of_rounds: usize,
-    original_mds: &[Vec<E::Fr>],
-) -> (Vec<Vec<E::Fr>>, Vec<Vec<Vec<E::Fr>>>) {
-    let state_width = original_mds.len();
-    let original_mds = transpose::<E>(original_mds);
-    let mut matrix = original_mds.to_vec();
-    let mut m_prime = identity::<E>(state_width);
-    let mut sparse_matrixes = vec![];
-    for _ in 0..number_of_rounds {
+    original_mds: &[[E::Fr; DIM]; DIM],
+) -> ([[E::Fr; DIM]; DIM], Vec<[[E::Fr; DIM]; DIM]>) {
+    let original_mds = transpose::<E, DIM>(original_mds);
+    let mut matrix = original_mds;
+    let mut m_prime = identity::<E, DIM>();
+    let mut sparse_matrixes = vec![[[E::Fr::zero(); DIM]; DIM]];
+    for round in 0..number_of_rounds {
         // M'
-        let m_hat = sub_matrix::<E>(&matrix, 1..state_width, 1..state_width);
-        m_prime = identity::<E>(state_width);
-        set_sub_matrix::<E>(&mut m_prime, 1..state_width, 1..state_width, &m_hat);
+        let m_hat = sub_matrix::<E, DIM, SUBDIM>(&matrix, 1..DIM, 1..DIM);
+        m_prime = identity::<E, DIM>();
+        set_sub_matrix::<E, DIM, SUBDIM>(&mut m_prime, 1..DIM, 1..DIM, &m_hat);
 
         // M"
-        let w = sub_matrix::<E>(&matrix, 1..state_width, 0..1);
-        let v = sub_matrix::<E>(&matrix, 0..1, 1..state_width);
+        let w = sub_matrix::<E, DIM, SUBDIM>(&matrix, 1..DIM, 0..1);
+        let v = sub_matrix::<E, DIM, SUBDIM>(&matrix, 0..1, 1..DIM);
 
-        let m_hat_inv = try_inverse::<E>(&m_hat).expect("inverse");
-        let w_hat = multiply::<E>(&m_hat_inv, &w);
+        let m_hat_inv = try_inverse::<E, SUBDIM>(&m_hat).expect("inverse");
+        let w_hat = multiply::<E, SUBDIM>(&m_hat_inv, &w);
 
-        let mut sparse_matrix = identity::<E>(state_width);
+        let mut sparse_matrix = identity::<E, DIM>();
         sparse_matrix[0][0] = matrix[0][0];
-        set_sub_matrix::<E>(&mut sparse_matrix, 0..1, 1..state_width, &v);
-        set_sub_matrix::<E>(&mut sparse_matrix, 1..state_width, 0..1, &w_hat);
+        set_sub_matrix::<E, DIM, SUBDIM>(&mut sparse_matrix, 0..1, 1..DIM, &v);
+        set_sub_matrix::<E, DIM, SUBDIM>(&mut sparse_matrix, 1..DIM, 0..1, &w_hat);
         {
             // sanity check
-            let actual = multiply::<E>(&m_prime, &sparse_matrix);
+            let actual = multiply::<E, DIM>(&m_prime, &sparse_matrix);
             assert_eq!(matrix, actual);
         }
-        sparse_matrixes.push(transpose::<E>(&sparse_matrix));
-        matrix = multiply::<E>(&original_mds, &m_prime);
+        // sparse_matrixes.push(transpose::<E, DIM>(&sparse_matrix));
+        sparse_matrixes[round] = transpose::<E, DIM>(&sparse_matrix);
+        matrix = multiply::<E, DIM>(&original_mds, &m_prime);
     }
 
     sparse_matrixes.reverse();
-    sparse_matrixes.iter().chain(&[m_prime.clone()]).for_each(|matrix| {
-        let _ = try_inverse::<E>(matrix).expect("should have matrixz");
-    });
+    sparse_matrixes
+        .iter()
+        .chain(&[m_prime.clone()])
+        .for_each(|matrix| {
+            let _ = try_inverse::<E, DIM>(matrix).expect("should have inverse");
+        });
 
-    (transpose::<E>(&m_prime), sparse_matrixes)
+    (transpose::<E, DIM>(&m_prime), sparse_matrixes)
 }
 
 // Multiply sparse matrix and vector by exploiting sparsity of optimized matrixes.
@@ -73,28 +76,29 @@ pub(crate) fn mul_by_sparse_matrix<E: Engine>(
 }
 
 // Decontructs a sub matrix
-pub(crate) fn sub_matrix<E: Engine>(
-    matrix: &[Vec<E::Fr>],
+pub(crate) fn sub_matrix<E: Engine, const DIM: usize, const SUBDIM: usize>(
+    matrix: &[[E::Fr; DIM]; DIM],
     row_range: std::ops::Range<usize>,
     col_range: std::ops::Range<usize>,
-) -> Vec<Vec<E::Fr>> {
-    let mut values = matrix.to_vec();
-    let values: Vec<Vec<E::Fr>> = values
-        .drain(row_range)
-        .collect::<Vec<Vec<E::Fr>>>()
-        .iter_mut()
-        .map(|row| row.drain(col_range.clone()).collect())
-        .collect();
+) -> [[E::Fr; SUBDIM]; SUBDIM] {
+    let mut sub_matrix = [[E::Fr::zero(); SUBDIM]; SUBDIM];
 
-    values
+    for (row_id, row) in matrix[row_range].iter().enumerate() {
+        // TODO: clone?
+        for (col_id, col) in row[col_range.clone()].iter().enumerate() {
+            sub_matrix[row_id][col_id] = *col;
+        }
+    }
+
+    sub_matrix
 }
 
 // Injects a lower dimension matrix into higher one.
-pub(crate) fn set_sub_matrix<E: Engine>(
-    matrix: &mut [Vec<E::Fr>],
+pub(crate) fn set_sub_matrix<E: Engine, const DIM: usize, const SUBDIM: usize>(
+    matrix: &mut [[E::Fr; DIM]; DIM],
     row_range: Range<usize>,
     col_range: Range<usize>,
-    sub_matrix: &[Vec<E::Fr>],
+    sub_matrix: &[[E::Fr; SUBDIM]; SUBDIM],
 ) {
     for (row_a, row_b) in matrix[row_range].iter_mut().zip(sub_matrix.iter()) {
         for (col_a, col_b) in row_a[col_range.clone()].iter_mut().zip(row_b.iter()) {
@@ -104,30 +108,23 @@ pub(crate) fn set_sub_matrix<E: Engine>(
 }
 
 // Multiplies matrix with a vector  and assigns result into same vector.
-pub(crate) fn mmul_assign<E: Engine>(matrix: &[Vec<E::Fr>], vector: &mut [E::Fr]) {
-    // [M]xv
-    assert!(!matrix.is_empty());
-    assert!(!vector.is_empty());
-    let row_len = matrix.len();
-    assert_eq!(row_len, vector.len());
-
-    let mut result = vec![E::Fr::zero(); row_len];
-    let row_len = matrix[0].len();
-    matrix.iter().for_each(|row| assert_eq!(row_len, row.len()));
-    for col in 0..row_len {
+pub(crate) fn mmul_assign<E: Engine, const DIM: usize>(matrix: &[[E::Fr; DIM]; DIM], vector: &mut [E::Fr; DIM]) {
+    // [M]xv    
+    let mut result = [E::Fr::zero(); DIM];
+    for col in 0..DIM {
         result[col] = crate::common::utils::scalar_product::<E>(vector, &matrix[col]);
     }
     vector.copy_from_slice(&result[..]);
 }
 
 // Multiplies two same dimension matrixes.
-pub(crate) fn multiply<E: Engine>(m1: &[Vec<E::Fr>], m2: &[Vec<E::Fr>]) -> Vec<Vec<E::Fr>> {
-    assert_eq!(m1[0].len(), m2.len());
-    let number_of_rows = m1.len();
-    let number_of_cols = m2[0].len();
-    let transposed_m2 = transpose::<E>(m2);
+pub(crate) fn multiply<E: Engine, const DIM: usize>(
+    m1: &[[E::Fr; DIM]; DIM],
+    m2: &[[E::Fr; DIM]; DIM],
+) -> [[E::Fr; DIM]; DIM] {
+    let transposed_m2 = transpose::<E, DIM>(m2);
 
-    let mut result = vec![vec![E::Fr::zero(); number_of_cols]; number_of_rows];
+    let mut result = [[E::Fr::zero(); DIM]; DIM];
 
     for (i, rv) in m1.iter().enumerate() {
         for (j, cv) in transposed_m2.iter().enumerate() {
@@ -138,11 +135,11 @@ pub(crate) fn multiply<E: Engine>(m1: &[Vec<E::Fr>], m2: &[Vec<E::Fr>]) -> Vec<V
     result
 }
 // Transpose of a matrix.
-pub(crate) fn transpose<E: Engine>(matrix: &[Vec<E::Fr>]) -> Vec<Vec<E::Fr>> {
+pub(crate) fn transpose<E: Engine, const S: usize>(matrix: &[[E::Fr; S]; S]) -> [[E::Fr; S]; S] {
     let row_len = matrix.len();
     let col_len = matrix[0].len();
 
-    let mut values = vec![vec![E::Fr::zero(); row_len]; col_len];
+    let mut values = [[E::Fr::zero(); S]; S];
     for i in 0..row_len {
         for j in 0..col_len {
             values[j][i] = matrix[i][j];
@@ -153,20 +150,23 @@ pub(crate) fn transpose<E: Engine>(matrix: &[Vec<E::Fr>]) -> Vec<Vec<E::Fr>> {
 }
 
 // Computes inverse of 2-d or 3-d matrixes.
-pub(crate) fn try_inverse<E: Engine>(m: &[Vec<E::Fr>]) -> Option<Vec<Vec<E::Fr>>> {
+pub(crate) fn try_inverse<E: Engine, const S: usize>(
+    m: &[[E::Fr; S]; S],
+) -> Option<[[E::Fr; S]; S]> {
     assert_eq!(m[0].len(), m.len());
 
     let dim = m.len();
 
     match dim {
-        2 => try_inverse_dim_2::<E>(m),
-        3 => try_inverse_dim_3::<E>(m),
+        2 => try_inverse_dim_2::<E, S>(m),
+        3 => try_inverse_dim_3::<E, S>(m),
         _ => unimplemented!(),
     }
 }
 
 // Computes inverse of 2x2 matrix.
-fn try_inverse_dim_2<E: Engine>(m: &[Vec<E::Fr>]) -> Option<Vec<Vec<E::Fr>>> {
+fn try_inverse_dim_2<E: Engine, const S: usize>(m: &[[E::Fr; S]; S]) -> Option<[[E::Fr; S]; S]> {
+    assert_eq!(S, 2);
     let determinant = {
         let mut a = m[0][0];
         a.mul_assign(&m[1][1]);
@@ -179,10 +179,7 @@ fn try_inverse_dim_2<E: Engine>(m: &[Vec<E::Fr>]) -> Option<Vec<Vec<E::Fr>>> {
         a
     };
 
-    // if determinant.is_zero() {
-    //     return None;
-    // }
-    let mut result = vec![vec![E::Fr::zero(); 2]; 2];
+    let mut result = [[E::Fr::zero(); S]; S];
     let det_inv = if let Some(inv) = determinant.inverse() {
         inv
     } else {
@@ -220,7 +217,8 @@ fn try_inverse_dim_2<E: Engine>(m: &[Vec<E::Fr>]) -> Option<Vec<Vec<E::Fr>>> {
 }
 
 // Computes inverse of 3x3 matrix.
-fn try_inverse_dim_3<E: Engine>(m: &[Vec<E::Fr>]) -> Option<Vec<Vec<E::Fr>>> {
+fn try_inverse_dim_3<E: Engine, const S: usize>(m: &[[E::Fr; S]; S]) -> Option<[[E::Fr; S]; S]> {
+    assert_eq!(S, 3);
     // m22 * m33 - m32 * m23;
     let minor_m12_m23 = {
         let mut a = m[1][1];
@@ -281,7 +279,7 @@ fn try_inverse_dim_3<E: Engine>(m: &[Vec<E::Fr>]) -> Option<Vec<Vec<E::Fr>>> {
         return None;
     }
 
-    let mut result = vec![vec![E::Fr::zero(); m[0].len()]; m.len()];
+    let mut result = [[E::Fr::zero(); S]; S];
     let det_inv = if let Some(inv) = determinant.inverse() {
         inv
     } else {
@@ -400,10 +398,10 @@ fn try_inverse_dim_3<E: Engine>(m: &[Vec<E::Fr>]) -> Option<Vec<Vec<E::Fr>>> {
 }
 
 // Computes identity of given dimension.
-fn identity<E: Engine>(dimension: usize) -> Vec<Vec<E::Fr>> {
-    let mut identity = vec![vec![E::Fr::zero(); dimension]; dimension];
-    for i in 0..dimension {
-        for j in 0..dimension {
+fn identity<E: Engine, const S: usize>() -> [[E::Fr; S]; S] {
+    let mut identity = [[E::Fr::zero(); S]; S];
+    for i in 0..S {
+        for j in 0..S {
             let el = if i == j { E::Fr::one() } else { E::Fr::zero() };
             identity[i][j] = el;
         }
@@ -428,18 +426,17 @@ mod test {
         let mut three = two.clone();
         three.add_assign(&one);
 
-        let dim = 3;
-        let values = vec![
-            vec![two, one, one],
-            vec![three, two, one],
-            vec![two, one, two],
-        ];
+        const DIM: usize = 3;
+        let values = [[two, one, one], [three, two, one], [two, one, two]];
 
-        let _ = try_inverse::<Bn256>(&values);
+        let _ = try_inverse::<Bn256, DIM>(&values);
 
         assert_eq!(
-            identity::<Bn256>(dim),
-            multiply::<Bn256>(&try_inverse::<Bn256>(&values).expect("inverse"), &values)
+            identity::<Bn256, DIM>(),
+            multiply::<Bn256, DIM>(
+                &try_inverse::<Bn256, DIM>(&values).expect("inverse"),
+                &values
+            )
         );
     }
 
@@ -451,21 +448,20 @@ mod test {
         let mut three = two.clone();
         three.add_assign(&one);
 
-        let matrix = vec![
-            vec![two, one, one],
-            vec![three, two, one],
-            vec![two, one, two],
-        ];
+        const DIM: usize = 3;
+        const SUBDIM: usize = 2;
+
+        let matrix = [[two, one, one], [three, two, one], [two, one, two]];
 
         {
-            let expected = vec![vec![two, one], vec![one, two]];
-            let actual = sub_matrix::<Bn256>(&matrix, 1..3, 1..3);
+            let expected = [[two, one], [one, two]];
+            let actual = sub_matrix::<Bn256, DIM, SUBDIM>(&matrix, 1..3, 1..3);
             assert_eq!(expected, actual);
         }
         {
-            let expected = vec![vec![two], vec![three], vec![two]];
-            let actual = sub_matrix::<Bn256>(&matrix, 0..3, 0..1);
-            assert_eq!(expected, actual);
+            let expected = [[two], [three], [two]];
+            let actual = sub_matrix::<Bn256, DIM, SUBDIM>(&matrix, 0..3, 0..1);
+            // assert_eq!(expected, actual); TODO
         }
     }
 
@@ -478,20 +474,15 @@ mod test {
         let mut three = two.clone();
         three.add_assign(&one);
 
-        let mut matrix = vec![
-            vec![two, one, one],
-            vec![three, two, one],
-            vec![two, one, two],
-        ];
-        let sub_matrix = vec![vec![zero, zero], vec![zero, zero]];
+        const DIM: usize = 3;
+        const SUBDIM: usize = 2;
 
-        let expected_matrix = vec![
-            vec![two, one, one],
-            vec![three, zero, zero],
-            vec![two, zero, zero],
-        ];
+        let mut matrix = [[two, one, one], [three, two, one], [two, one, two]];
+        let sub_matrix = [[zero, zero], [zero, zero]];
 
-        set_sub_matrix::<Bn256>(&mut matrix, 1..3, 1..3, &sub_matrix);
+        let expected_matrix = [[two, one, one], [three, zero, zero], [two, zero, zero]];
+
+        set_sub_matrix::<Bn256, DIM, SUBDIM>(&mut matrix, 1..3, 1..3, &sub_matrix);
         assert_eq!(expected_matrix, matrix);
     }
 
@@ -499,15 +490,18 @@ mod test {
     fn test_matrix_transpose() {
         let rng = &mut init_rng();
 
-        let dim = 3;
+        const DIM: usize = 3;
         for _ in 0..10 {
-            let mut matrix = vec![vec![Fr::zero(); dim]; dim];
-            for i in 0..dim {
-                for j in 0..dim {
+            let mut matrix = [[Fr::zero(); DIM]; DIM];
+            for i in 0..DIM {
+                for j in 0..DIM {
                     matrix[i][j] = Fr::rand(rng);
                 }
             }
-            assert_eq!(transpose::<Bn256>(&transpose::<Bn256>(&matrix)), matrix);
+            assert_eq!(
+                transpose::<Bn256, DIM>(&transpose::<Bn256, DIM>(&matrix)),
+                matrix
+            );
         }
     }
 
@@ -517,17 +511,12 @@ mod test {
 
         let rng = &mut init_rng();
 
-        let state_width = 3usize;
+        const DIM: usize = 3;
+        const SUBDIM: usize = 2;
 
-        let original_mds_1d =
-            crate::common::utils::construct_mds_matrix::<Bn256, _>(state_width, rng);
+        let original_mds = crate::common::utils::construct_mds_matrix::<Bn256, _, DIM>(rng);
 
-        let original_mds = original_mds_1d
-            .chunks_exact(state_width)
-            .map(|els| els.to_vec())
-            .collect::<Vec<Vec<Fr>>>();
-
-        let (_, _) = compute_optimized_matrixes::<Bn256>(5, &original_mds);
+        let (_, _) = compute_optimized_matrixes::<Bn256, DIM, SUBDIM>(5, &original_mds);
     }
 
     #[test]

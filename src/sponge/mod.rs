@@ -3,9 +3,6 @@ use franklin_crypto::bellman::pairing::Engine;
 // use poseidon_hash::StatefulSponge;
 
 pub(crate) mod state;
-pub trait SpongeParams {
-    fn rate(&self) -> usize;
-}
 pub trait SpongeState<E: Engine, const S: usize> {
     fn state_as_ref(&self) -> &[E::Fr; S];
     fn state_as_mut(&mut self) -> &mut [E::Fr; S];
@@ -26,7 +23,7 @@ pub enum SpongeModes {
 pub trait SpongeMode<E: Engine> {
     fn get_mode(&self) -> SpongeModes;
     fn update_mode(&mut self, mode: SpongeModes);
-    fn mode_as_mut(&mut self) -> &mut SpongeModes;
+    
 }
 
 pub trait StatefulSponge<E: Engine, const S: usize, const R: usize>:

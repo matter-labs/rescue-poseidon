@@ -7,15 +7,9 @@ use franklin_crypto::{
     plonk::circuit::{allocated_num::Num, boolean::Boolean},
 };
 
-// This traits will be moved into franklin, thats why we use different trait.
-pub trait GadgetSpongeParams {
-    fn rate(&self) -> usize;
-}
-pub trait GadgetSpongeState<E: Engine> {
-    fn state_as_ref(&self) -> &[LinearCombination<E>];
-    fn storage_as_ref(&self) -> &[Num<E>];
-    fn state_as_mut(&mut self) -> &mut [LinearCombination<E>];
-    fn storage_as_mut(&mut self) -> &mut Vec<Num<E>>;
+pub trait GadgetSpongeState<E: Engine, const S: usize> {
+    fn state_as_ref(&self) -> &[LinearCombination<E>; S];
+    fn state_as_mut(&mut self) -> &mut [LinearCombination<E>; S];
 }
 
 pub trait GadgetSpongePermutation<E: Engine> {
@@ -27,23 +21,22 @@ pub trait GadgetSpongePermutation<E: Engine> {
 }
 
 #[derive(Clone, Debug)]
-pub enum SpongeModes<E: Engine> {
+pub enum SpongeModes{
     // Standard mode is stateless
-    Standard,
+    Standard(bool),
     // Duplex is statefull and maximum number of element "l" one can request
     // is equal to rate parameter.
-    Duplex(Vec<Num<E>>),
+    Duplex(bool),
 }
 
 pub trait GadgetSpongeMode<E: Engine> {
-    fn get_mode(&self) -> SpongeModes<E>;
-    fn update_mode(&mut self, mode: SpongeModes<E>);
+    fn get_mode(&self) -> SpongeModes;
+    fn update_mode(&mut self, mode: SpongeModes);
 }
 
-pub trait StatefulSpongeGadget<E: Engine>:
-    GadgetSpongeState<E>
-    + GadgetSpongePermutation<E>
-    + GadgetSpongeParams
+pub trait StatefulSpongeGadget<E: Engine, const R: usize, const S: usize>:
+    GadgetSpongeState<E, S>
+    + GadgetSpongePermutation<E>    
     + GadgetSpongeMode<E>
     + Default
 {
@@ -58,188 +51,137 @@ pub trait StatefulSpongeGadget<E: Engine>:
     fn absorb<CS: ConstraintSystem<E>>(
         &mut self,
         cs: &mut CS,
-        input: Num<E>,
-    ) -> Result<(), SynthesisError> {
-        let rate = self.rate();
-        if self.storage_as_ref().len() < rate {
-            self.storage_as_mut().push(input);
-        }
-
-        match self.get_mode() {
-            SpongeModes::Standard =>  {
-                if self.storage_as_ref().len() == rate {
-                    permute::<_, CS, _>(cs, self)
-                }else{
-                    Ok(())
-                }
-            },
-            SpongeModes::Duplex(_) => {
-                // If state already squeezed then discard buffer. We don't need to
-                // accumulate any value here because we alread stored in top of function
-                self.update_mode(SpongeModes::Duplex(Vec::with_capacity(self.rate())));
-                Ok(())
-            }
-        }
-    }
-
-    fn absorb_multi<CS: ConstraintSystem<E>>(
-        &mut self,
-        cs: &mut CS,
         input: &[Num<E>],
     ) -> Result<(), SynthesisError> {
-        let rate = self.rate();
         assert!(!input.is_empty());
-        assert_eq!(input.len() % rate, 0);
-        for i in 0..input.len() / rate {
-            for value in input.iter().skip(i * rate).take(rate) {
-                self.absorb(cs, *value)?;
+        let rate = R;        
+        
+
+        match self.get_mode() {
+            SpongeModes::Standard(is_absorbed) =>  {
+                assert_eq!(
+                    input.len() % rate,
+                    0,
+                    "input length is not multiple of rate"
+                );
+                assert!(!is_absorbed, "Sponge should be in in absorbtion phase");
+                for elems in input.chunks_exact(rate) {
+                    for (value, state) in elems.iter().zip(self.state_as_mut().iter_mut()) {
+                        state.add_assign_number_with_coeff(value, E::Fr::one());
+                    }
+                    self.permutation(cs, &Boolean::constant(true));
+                    self.update_mode(SpongeModes::Standard(true));
+                }
+            },
+            SpongeModes::Duplex(is_absorbed) => {
+                assert!(!is_absorbed, "Sponge should be in in absorbtion phase");
+                assert!(
+                    input.len() <= rate,
+                    "duplex sponge can absorb max rate elems"
+                );
+                // If state already squeezed then discard buffer. We don't need to
+                // accumulate any value here because we alread stored in top of function
+                // TODO
+                for (value, state) in input.iter().zip(self.state_as_mut().iter_mut()) {
+                    state.add_assign_number_with_coeff(value, E::Fr::one());
+                }
+                self.permutation(cs, &Boolean::constant(true));
+                self.update_mode(SpongeModes::Standard(true));
+
             }
         }
-
         Ok(())
     }
+
 
     fn squeeze<CS: ConstraintSystem<E>>(
         &mut self,
         cs: &mut CS,
+        number_of_elems: Option<usize>
     ) -> Result<Vec<Num<E>>, SynthesisError> {
-        assert!(
-            self.storage_as_ref().is_empty(),
-            "storage should be empty which also means permutation happened"
-        );
-        assert!(
-            self.state_as_ref()
-                .iter()
-                .all(|el| !el.get_value().expect("").is_zero()),
-            "state elements should not equal to zero"
-        );
+        let rate = R;
 
-        let output = self.state_as_ref()[..self.rate()]
-            .iter()
-            .map(|s| s.clone().into_num(cs).expect("should get a num"))
-            .collect();
-        Ok(output)
-    }
+        let mut out = vec![];
 
-    fn squeeze_single<CS: ConstraintSystem<E>>(
-        &mut self,
-        cs: &mut CS,
-    ) -> Result<Num<E>, SynthesisError> {
         match self.get_mode() {
-            SpongeModes::Standard => {
-                unimplemented!("Only duplex sponge can squeeze single element")
+            SpongeModes::Standard(is_absorbed) => {
+                assert!(is_absorbed, "Sponge should be in in squeezing phase");
+                if let Some(number_of_elems) = number_of_elems {
+                    if number_of_elems <= rate {
+                        out.extend_from_slice(&self.state_as_ref()[..rate]);
+                    } else {
+                        let original_number_of_elems = number_of_elems;
+
+                        let number_of_iters = if number_of_elems % rate != 0 {
+                            (number_of_elems + (rate - (number_of_elems % rate))) / rate
+                        } else {
+                            number_of_elems / rate
+                        };
+
+                        for _ in 0..number_of_iters {
+                            out.extend_from_slice(&self.state_as_ref()[..rate]);
+                            self.permutation(cs, &Boolean::constant(true));
+                        }
+
+                        out.truncate(original_number_of_elems);
+                    }
+                } else {
+                    out.extend_from_slice(&self.state_as_ref()[..rate]);
+                }
+                self.update_mode(SpongeModes::Standard(false));
+                self.reset();
             }
-            SpongeModes::Duplex(mut buffer) => {
-                // use already squeezed values
-                if buffer.len() > 0 {
-                    let out = buffer.remove(0);
-                    self.update_mode(SpongeModes::Duplex(buffer));
-                    return Ok(out);
-                }
-                // at least one element should have been absorbed
-                assert!(self.storage_as_ref().len() >= 1);
-                // pad elements in order to run a permutation
-                // TODO:  PaddingStrategy enum can be used here
-                while self.storage_as_ref().len() % self.rate() != 0 {
-                    self.storage_as_mut().push(Num::Constant(E::Fr::one()));
-                }
-                permute(cs, self)?;
-                // squeeze from state
-                let mut output: Vec<Num<E>> = self.state_as_ref()[..self.rate()]
-                    .iter()
-                    .map(|s| s.clone().into_num(cs).expect("should get a num"))
-                    .collect();
-                // output single element
-                let out = output.remove(0);
-                self.update_mode(SpongeModes::Duplex(output));
-                Ok(out)
+
+            SpongeModes::Duplex(is_absorbed) => {
+                assert!(is_absorbed, "Sponge should be in in squeezing phase");
+                let number_of_elems = if let Some(number_of_elems) = number_of_elems {
+                    assert!(
+                        number_of_elems <= rate,
+                        "duplex sponge squeeze only as much as rate parameter"
+                    );
+                    number_of_elems
+                } else {
+                    rate
+                };
+
+                out.extend_from_slice(&self.state_as_ref()[..number_of_elems]);
+                self.update_mode(SpongeModes::Standard(false));
             }
         }
+
+        let out: Vec<Num<E>> = out.iter().map(|s| s.clone().into_num(cs).expect("a num")).collect();
+
+        Ok(out)
     }
 
-    fn squeeze_multi<CS: ConstraintSystem<E>>(
-        &mut self,
-        cs: &mut CS,
-        len: usize,
-    ) -> Result<Vec<Num<E>>, SynthesisError> {
-        assert!(self.storage_as_ref().is_empty(), "storage should be empty");
-        assert!(self
-            .state_as_ref()
-            .iter()
-            .all(|el| !el.get_value().expect("").is_zero()),);
-        assert!(
-            len > 2,
-            "length of requested output should be greater than rate param"
-        );
-        let mut output = vec![];
-        let should_permute = Boolean::Constant(true);
-        while output.len() < len {
-            for i in 0..self.rate() {
-                output.push(self.state_as_ref()[i].clone().into_num(cs)?);
-            }
-
-            if output.len() < len {
-                self.permutation(cs, &should_permute)?;
-                self.storage_as_mut().truncate(0);
-            }
-        }
-        assert!(output.len() == len);
-
-        Ok(output)
-    }
 
     fn reset(&mut self) {
-        self.storage_as_mut().truncate(0);
         self.state_as_mut()
             .iter_mut()
             .for_each(|s| *s = LinearCombination::zero());
     }
 }
 
-fn permute<E: Engine, CS: ConstraintSystem<E>, S: StatefulSpongeGadget<E>>(
-    cs: &mut CS,
-    sponge: &mut S,
-) -> Result<(), SynthesisError> {
-    let storage_values = sponge.storage_as_ref().to_vec();
-    for (value, state) in storage_values.iter().zip(sponge.state_as_mut().iter_mut()) {
-        state.add_assign_number_with_coeff(value, E::Fr::one());
-    }
-    sponge.permutation(cs, &Boolean::Constant(true))?;
-    sponge.storage_as_mut().truncate(0);
-    Ok(())
-}
 
 #[macro_export]
 macro_rules! sponge_gadget_impl {
     ($hasher_name:ty) => {
-        impl<E: Engine> StatefulSpongeGadget<E> for $hasher_name {}
+        impl<E: Engine, const R: usize, const S: usize> StatefulSpongeGadget<E, R, S> for $hasher_name {}
 
-        impl<E: Engine> GadgetSpongeParams for $hasher_name {
-            fn rate(&self) -> usize {
-                self.params.rate
+        impl<E: Engine, const R: usize, const S: usize> GadgetSpongeState<E, S> for $hasher_name {
+            fn state_as_ref(&self) -> &[LinearCombination<E>; S] {
+                &self.state
+            }
+            fn state_as_mut(&mut self) -> &mut [LinearCombination<E>; S] {
+                &mut self.state
             }
         }
 
-        impl<E: Engine> GadgetSpongeState<E> for $hasher_name {
-            fn state_as_ref(&self) -> &[LinearCombination<E>] {
-                self.state.as_ref()
-            }
-            fn storage_as_ref(&self) -> &[Num<E>] {
-                self.tmp_storage.as_ref()
-            }
-            fn state_as_mut(&mut self) -> &mut [LinearCombination<E>] {
-                self.state.as_mut()
-            }
-            fn storage_as_mut(&mut self) -> &mut Vec<Num<E>> {
-                self.tmp_storage.as_mut()
-            }
-        }
-
-        impl<E: Engine> GadgetSpongeMode<E> for $hasher_name {
-            fn get_mode(&self) -> SpongeModes<E> {
+        impl<E: Engine, const R: usize, const S: usize> GadgetSpongeMode<E> for $hasher_name {
+            fn get_mode(&self) -> SpongeModes {
                 self.sponge_mode.to_owned()
             }
-            fn update_mode(&mut self, mode: SpongeModes<E>) {
+            fn update_mode(&mut self, mode: SpongeModes) {
                 self.sponge_mode = mode;
             }
         }

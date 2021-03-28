@@ -4,14 +4,19 @@ use franklin_crypto::{
     bellman::{Engine, SynthesisError},
     plonk::circuit::allocated_num::Num,
 };
-
+use std::convert::TryInto;
 // Multiplies matrix with a vector  and assigns result into same vector.
-pub(crate) fn matrix_vector_product<E: Engine, CS: ConstraintSystem<E>>(
+pub(crate) fn matrix_vector_product<E: Engine, CS: ConstraintSystem<E>, const DIM: usize>(
     cs: &mut CS,
-    matrix: &[Vec<E::Fr>],
-    vector: &[LinearCombination<E>],
-) -> Result<Vec<LinearCombination<E>>, SynthesisError> {
-    let mut result = vec![LinearCombination::zero(); vector.len()];
+    matrix: &[[E::Fr; DIM]; DIM],
+    vector: &[LinearCombination<E>; DIM],
+) -> Result<[LinearCombination<E>; DIM], SynthesisError> {
+    let mut result: [LinearCombination<E>; DIM] = (0..DIM)
+        .map(|_| LinearCombination::zero())
+        .collect::<Vec<LinearCombination<E>>>()
+        .try_into()
+        .expect("vector of lc");
+    // let mut result = [LinearCombination::zero(); DIM];
     let vec_as_nums = vector
         .iter()
         .map(|v| v.to_owned().into_num(cs).expect("into allocated num"))
@@ -22,16 +27,22 @@ pub(crate) fn matrix_vector_product<E: Engine, CS: ConstraintSystem<E>>(
             result[i].add_assign_number_with_coeff(&num, *coeff)
         }
     }
+
     Ok(result)
 }
 
 // Multiply sparse matrix and vector by exploiting sparsity of optimized matrixes.
-pub(crate) fn mul_by_sparse_matrix<E: Engine, CS: ConstraintSystem<E>>(
+pub(crate) fn mul_by_sparse_matrix<E: Engine, CS: ConstraintSystem<E>, const DIM: usize>(
     _cs: &mut CS,
-    vector: &[LinearCombination<E>],
-    matrix: &[Vec<E::Fr>],
-) -> Vec<LinearCombination<E>> {
-    let mut result = vec![LinearCombination::zero(); vector.len()];
+    vector: &[LinearCombination<E>; DIM],
+    matrix: &[[E::Fr; DIM]; DIM],
+) -> [LinearCombination<E>; DIM] {
+    assert_eq!(DIM, 3, "valid only for 3x3 matrix");
+    let mut result: [LinearCombination<E>; DIM] = (0..DIM)
+        .map(|_| LinearCombination::zero())
+        .collect::<Vec<LinearCombination<E>>>()
+        .try_into()
+        .expect("vector of lc");
 
     for (a, b) in vector.iter().zip(matrix[0].iter()) {
         result[0].add_assign_scaled(a, *b);
@@ -55,35 +66,46 @@ mod test {
         plonk::circuit::{allocated_num::AllocatedNum, linear_combination::LinearCombination},
     };
     use rand::Rand;
+    use std::convert::TryInto;
 
     #[test]
     fn test_matrix_product() {
         let cs = &mut init_cs::<Bn256>();
         let rng = &mut init_rng();
 
-        let mut vector_fe: Vec<Fr> = (0..3).map(|_| Fr::rand(rng)).collect();
+        const DIM: usize = 3;
 
-        let vector_lc = vector_fe
+        let mut vector_fe: [Fr; DIM] = [Fr::rand(rng); DIM];
+
+        let mut vector_lc: [LinearCombination<_>; DIM] = (0..DIM)
+            .map(|_| LinearCombination::zero())
+            .collect::<Vec<LinearCombination<_>>>()
+            .try_into()
+            .expect("vector of lc");
+        vector_fe
             .iter()
-            .map(|el| LinearCombination::from(AllocatedNum::alloc(cs, || Ok(*el)).unwrap()))
-            .collect::<Vec<LinearCombination<_>>>();
+            .zip(vector_lc.iter_mut())
+            .for_each(|(src, dst)| {
+                *dst = LinearCombination::from(AllocatedNum::alloc(cs, || Ok(*src)).unwrap())
+            });
 
-        let mut matrix = (0..9)
+        let mut matrix = [[Fr::zero(); DIM]; DIM];
+        (0..9)
             .map(|_| Fr::rand(rng))
             .collect::<Vec<Fr>>()
             .chunks_exact(3)
-            .map(|c| c.to_vec())
-            .collect::<Vec<Vec<Fr>>>();
+            .zip(matrix.iter_mut())
+            .for_each(|(src, dst)| *dst = src.try_into().expect("static vector"));
 
         matrix[1][1] = Fr::one();
         matrix[1][2] = Fr::zero();
         matrix[2][1] = Fr::zero();
         matrix[2][2] = Fr::one();
 
-        crate::common::matrix::mmul_assign::<Bn256>(&matrix, &mut vector_fe);
+        crate::common::matrix::mmul_assign::<Bn256, DIM>(&matrix, &mut vector_fe);
         let actual = super::mul_by_sparse_matrix(cs, &vector_lc, &matrix);
 
-        vector_fe.iter().zip(actual).for_each(|(fe, lc)| {
+        vector_fe.iter().zip(actual.iter()).for_each(|(fe, lc)| {
             let actual = lc.clone().into_num(cs).unwrap().get_value().unwrap();
             assert_eq!(*fe, actual);
         });

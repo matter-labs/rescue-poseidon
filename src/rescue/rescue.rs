@@ -2,7 +2,7 @@ use crate::common::{
     hash::generic_hash_with_padding, matrix::mmul_assign, padding::PaddingStrategy, sbox::sbox,
 };
 use crate::sponge::{
-    SpongeMode, SpongeModes, SpongeParams, SpongePermutation, SpongeState, StatefulSponge,
+    SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge,
 };
 use crate::sponge_impl;
 use crate::HasherParams;
@@ -35,9 +35,8 @@ pub fn rescue_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -
 
 #[derive(Debug, Clone)]
 pub struct RescueHasher<E: Engine, const S: usize, const R: usize> {
-    params: HasherParams<E>,
+    params: HasherParams<E, R, S>,
     state: [E::Fr; S],
-    tmp_storage: Vec<E::Fr>,
     alpha: E::Fr,
     alpha_inv: E::Fr,
     sponge_mode: SpongeModes,
@@ -47,8 +46,7 @@ impl<E: Engine, const S: usize, const R: usize> Default for RescueHasher<E, S, R
     fn default() -> Self {
         let (params, alpha, alpha_inv) = super::params::rescue_params();
         Self {
-            state: [E::Fr::zero(); S],
-            tmp_storage: Vec::with_capacity(params.rate),
+            state: [E::Fr::zero(); S],            
             params,
             alpha,
             alpha_inv: alpha_inv.expect("inverse of alpha"),
@@ -63,7 +61,6 @@ impl<E: Engine, const S: usize, const R: usize> RescueHasher<E, S, R> {
         let (params, alpha, alpha_inv) = super::params::rescue_params();
         Self {
             state: [E::Fr::zero(); S],
-            tmp_storage: Vec::with_capacity(params.rate),
             alpha,
             alpha_inv: alpha_inv.expect("inverse of alpha"),
             params,
@@ -102,7 +99,7 @@ impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescueH
             }
 
             // mds
-            mmul_assign::<E>(&self.params.mds_matrix, &mut self.state);
+            mmul_assign::<E, S>(&self.params.mds_matrix, &mut self.state);
 
             // round constants
             self.state

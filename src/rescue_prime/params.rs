@@ -5,13 +5,15 @@ extern crate num_bigint;
 extern crate num_integer;
 extern crate num_traits;
 use franklin_crypto::bellman::pairing::bn256::Bn256;
-use franklin_crypto::bellman::PrimeField;
+use franklin_crypto::bellman::{Field, PrimeField};
 use num_bigint::{BigInt, BigUint, Sign};
 use num_integer::{ExtendedGcd, Integer};
 use num_traits::{One, Zero};
 use std::ops::{Mul, Sub};
+use std::convert::TryInto;
 
-fn get_number_of_rounds(m: usize, capacity: usize, security_level: usize, alpha: usize) -> usize {
+fn get_number_of_rounds(m: usize, r: usize, security_level: usize, alpha: usize) -> usize {
+    let capacity = m - r;
     fn factorial(n: &BigUint) -> BigUint {
         if n.is_zero() {
             return BigUint::one();
@@ -76,14 +78,14 @@ fn compute_alpha(p: &[u8]) -> (BigUint, BigUint) {
     )
 }
 
-fn compute_round_constants<E: Engine>(
+fn compute_round_constants<E: Engine, const STATE_WIDTH: usize>(
     modulus_bytes: &[u8],
     p_big: BigInt,
     m: usize,
     capacity: usize,
     security_level: usize,
     n: usize,
-) -> Vec<E::Fr> {
+) -> Vec<[E::Fr; STATE_WIDTH]> {
     fn shake256(input: &[u8], num_bytes: usize) -> Box<[u8]> {
         use sha3::digest::ExtendableOutput;
         use sha3::digest::Update;
@@ -130,13 +132,18 @@ fn compute_round_constants<E: Engine>(
         let constant_fe = E::Fr::from_repr(repr).unwrap();
         round_constants.push(constant_fe);
     }
+    let mut final_constants = vec![[E::Fr::zero(); STATE_WIDTH]; n];
+
     round_constants
+        .chunks_exact(STATE_WIDTH)
+        .zip(final_constants.iter_mut())
+        .for_each(|(src, dst)| *dst = src.try_into().expect("constants in const"));
+
+    final_constants
 }
 
-pub fn rescue_prime_params<E: Engine>() -> (HasherParams<E>, E::Fr, E::Fr) {
-    let rate = 2;
-    let capacity = 1;
-    let state_width = rate + capacity;
+pub fn rescue_prime_params<E: Engine, const RATE: usize, const STATE_WIDTH: usize>(
+) -> (HasherParams<E, RATE, STATE_WIDTH>, E::Fr, E::Fr) {
     let security_level = 80;
 
     let mut modulus_bytes = vec![];
@@ -145,27 +152,19 @@ pub fn rescue_prime_params<E: Engine>() -> (HasherParams<E>, E::Fr, E::Fr) {
     let p_big = BigInt::from_bytes_le(Sign::Plus, &modulus_bytes);
     let (alpha, alpha_inv) = compute_alpha(&modulus_bytes);
     let alpha = alpha.to_u32_digits()[0] as usize;
-    let number_of_rounds = get_number_of_rounds(state_width, capacity, security_level, alpha);
-    
+    let number_of_rounds = get_number_of_rounds(STATE_WIDTH, RATE, security_level, alpha);
+
     // TODO: double check
-    let mut params = HasherParams::new(
-        rate,
-        capacity,
-        security_level,
-        number_of_rounds,
-        0,
-    );
-    params.round_constants = compute_round_constants::<E>(
+    let mut params = HasherParams::new(security_level, number_of_rounds, 0);
+    params.round_constants = compute_round_constants::<E, STATE_WIDTH>(
         &modulus_bytes,
         p_big,
-        state_width,
-        capacity,
+        // TODO
+        STATE_WIDTH,
+        STATE_WIDTH - RATE,
         security_level,
         number_of_rounds,
-    )
-    .chunks_exact(params.state_width)
-    .map(|chunk| chunk.to_vec())
-    .collect();
+    );
 
     params.compute_mds_matrix_for_rescue();
 
@@ -195,7 +194,7 @@ fn test_calculate_number_of_rounds() {
         alpha, alpha_inv, n
     );
     let round_constants =
-        compute_round_constants::<Bn256>(&modulus_bytes, p_big, m, capacity, security_level, n);
+        compute_round_constants::<Bn256, 3>(&modulus_bytes, p_big, m, capacity, security_level, n);
 
     println!("number of rounds {}", n);
     println!("number of round constants {}", round_constants.len());

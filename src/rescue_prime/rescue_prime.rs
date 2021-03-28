@@ -1,6 +1,6 @@
 use crate::{common::matrix::mmul_assign};
 use crate::common::{hash::generic_hash_with_padding, padding::PaddingStrategy, sbox::sbox};
-use crate::sponge::{SpongeParams, SpongePermutation, SpongeState, StatefulSponge, SpongeMode, SpongeModes};
+use crate::sponge::{SpongePermutation, SpongeState, StatefulSponge, SpongeMode, SpongeModes};
 use crate::sponge_impl;
 use crate::HasherParams;
 use franklin_crypto::bellman::pairing::ff::Field;
@@ -34,9 +34,8 @@ pub fn rescue_prime_hash<E: Engine, const S: usize, const R: usize>(input: &[E::
 
 #[derive(Debug, Clone)]
 pub struct RescuePrimeHasher<E: Engine, const S: usize, const R: usize> {
-    params: HasherParams<E>,
+    params: HasherParams<E, R, S>,
     state: [E::Fr; S],
-    tmp_storage: Vec<E::Fr>,
     alpha: E::Fr,
     alpha_inv: E::Fr,
     sponge_mode: SpongeModes,
@@ -47,7 +46,6 @@ impl<E: Engine, const S: usize, const R: usize> Default for RescuePrimeHasher<E,
         let (params, alpha, alpha_inv) = crate::rescue_prime::params::rescue_prime_params();
         Self {
             state: [E::Fr::zero(); S],
-            tmp_storage: Vec::with_capacity(params.rate),
             params,
             alpha,
             alpha_inv,
@@ -67,7 +65,7 @@ impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescueP
             // sbox alpha
             sbox::<E>(self.alpha, &mut self.state);
             // mds
-            mmul_assign::<E>(&self.params.mds_matrix, &mut self.state);
+            mmul_assign::<E, S>(&self.params.mds_matrix, &mut self.state);
 
             // round constants
             self.state
@@ -79,7 +77,7 @@ impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescueP
             sbox::<E>(self.alpha_inv, &mut self.state);
 
             // mds
-            mmul_assign::<E>(&self.params.mds_matrix, &mut self.state);
+            mmul_assign::<E, S>(&self.params.mds_matrix, &mut self.state);
 
             // round constants
             self.state

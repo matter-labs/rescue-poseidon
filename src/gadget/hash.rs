@@ -7,13 +7,13 @@ use franklin_crypto::{
 
 // This function specializes sponge construction, computes required
 // values for padding and outputs hash of pre-image. 
-pub(crate) fn generic_hash<E: Engine, CS: ConstraintSystem<E>, S: StatefulSpongeGadget<E>>(
+pub(crate) fn generic_hash<E: Engine, CS: ConstraintSystem<E>, SPONGE: StatefulSpongeGadget<E, R, S>, const R: usize, const S: usize>(
     cs: &mut CS,
     input: &[Num<E>],
     padding_strategy: PaddingStrategy,
 ) -> Result<Vec<Num<E>>, SynthesisError> {
-    let mut sponge = S::default();
-    let rate = sponge.rate();
+    let mut sponge = SPONGE::default();
+    let rate = R;
 
     let capacity_value = padding_strategy.compute_capacity::<E>(input.len(), rate).map(|el| {
         let mut lc = LinearCombination::zero();
@@ -32,11 +32,11 @@ pub(crate) fn generic_hash<E: Engine, CS: ConstraintSystem<E>, S: StatefulSponge
         .cloned()
         .collect::<Vec<Num<E>>>();
 
-    sponge.absorb_multi(cs, &input)?;
 
     sponge.specialize(capacity_value);
-    sponge.absorb_multi(cs, &input_with_padding)?;
+    sponge.absorb(cs, &input_with_padding)?;
 
-    let output = sponge.squeeze(cs)?;
+    // TODO
+    let output = sponge.squeeze(cs, None)?;
     Ok(output)
 }

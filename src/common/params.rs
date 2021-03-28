@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use franklin_crypto::bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr};
 use franklin_crypto::bellman::pairing::Engine;
@@ -7,30 +9,26 @@ use rand::{chacha::ChaChaRng, Rng, SeedableRng};
 
 use crate::common::utils::construct_mds_matrix;
 
-
 #[derive(Debug, Clone)]
-pub struct HasherParams<E: Engine> {
-    pub rate: usize,
-    pub state_width: usize,
-    pub capacity: usize,
+pub struct HasherParams<E: Engine, const RATE: usize, const STATE_WIDTH: usize> {
     pub security_level: usize,
     pub full_rounds: usize,
     pub partial_rounds: usize,
-    round_constants: Vec<Vec<E::Fr>>,
-    mds_matrix: Vec<Vec<E::Fr>>,
+    round_constants: Vec<[E::Fr; STATE_WIDTH]>,
+    mds_matrix: [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
 }
 
 type H = BlakeHasher;
 
-impl<E: Engine> HasherParams<E> {
+impl<E: Engine, const RATE: usize, const STATE_WIDTH: usize> HasherParams<E, RATE, STATE_WIDTH> {
     pub fn constants_of_round(&self, round: usize) -> &[E::Fr] {
         &self.round_constants[round]
     }
 
-    pub fn round_constants(&self) -> &[Vec<E::Fr>] {
+    pub fn round_constants(&self) -> &[[E::Fr; STATE_WIDTH]] {
         &self.round_constants
     }
-    pub fn mds_matrix(&self) -> &[Vec<E::Fr>] {
+    pub fn mds_matrix(&self) -> &[[E::Fr; STATE_WIDTH]; STATE_WIDTH] {
         &self.mds_matrix
     }
 
@@ -65,10 +63,12 @@ impl<E: Engine> HasherParams<E> {
             nonce += 1;
         }
 
-        self.round_constants = round_constants
-            .chunks_exact(self.state_width)
-            .map(|chunk| chunk.to_vec())
-            .collect();
+        round_constants
+            .chunks_exact(STATE_WIDTH)
+            .zip(self.round_constants.iter_mut())
+            .for_each(|(values, constants)| {
+                *constants = values.try_into().expect("round constants in const")
+            });
     }
 
     fn compute_mds_matrix_for_poseidon(&mut self) {
@@ -82,10 +82,7 @@ impl<E: Engine> HasherParams<E> {
     }
 
     fn compute_mds_matrix<R: Rng>(&mut self, rng: &mut R) {
-        self.mds_matrix = construct_mds_matrix::<E, _>(self.state_width, rng)
-            .chunks_exact(self.state_width)
-            .map(|chunk| chunk.to_vec())
-            .collect();
+        self.mds_matrix =  construct_mds_matrix::<E, _, STATE_WIDTH>(rng);
     }
 }
 
