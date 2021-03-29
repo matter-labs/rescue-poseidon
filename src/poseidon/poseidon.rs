@@ -59,7 +59,7 @@ impl<E: Engine, const S: usize, const R: usize> Default for PoseidonHasher<E, S,
     }
 }
 impl<E: Engine, const S: usize, const R: usize> PoseidonHasher<E, S, R> {
-    pub fn new(sponge_mode: SpongeModes) -> Self {
+    pub fn new_duplex() -> Self {
         let (params, alpha, optimized_round_constants, optimized_mds_matrixes) =
             super::params::poseidon_light_params();
         Self {
@@ -68,7 +68,7 @@ impl<E: Engine, const S: usize, const R: usize> PoseidonHasher<E, S, R> {
             params,
             optimized_round_constants,
             optimized_mds_matrixes,
-            sponge_mode,
+            sponge_mode: SpongeModes::Duplex(false),
         }
     }
 }

@@ -44,31 +44,21 @@ impl<E: Engine, const S: usize, const R: usize> Default for RescueHasher<E, S, R
             params,
             alpha,
             alpha_inv: alpha_inv.expect("inverse of alpha"),
-            // TODO
             sponge_mode: SpongeModes::Standard(false),
         }
     }
 }
 
 impl<E: Engine, const S: usize, const R: usize> RescueHasher<E, S, R> {
-    pub fn new(sponge_mode: SpongeModes) -> Self {
+    pub fn new_duplex() -> Self {
         let (params, alpha, alpha_inv) = super::params::rescue_params();
         Self {
             state: [E::Fr::zero(); S],
             alpha,
             alpha_inv: alpha_inv.expect("inverse of alpha"),
             params,
-            sponge_mode,
+            sponge_mode: SpongeModes::Duplex(false),
         }
-    }
-
-    pub fn new_duplex() -> Self {
-        Self::new(SpongeModes::Duplex(false))
-    }
-
-    pub fn new_sponge() -> Self {
-        // TODO
-        Self::new(SpongeModes::Standard(false))
     }
 }
 

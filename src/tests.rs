@@ -147,6 +147,7 @@ fn test_rescue_comparisons_with_original_one() {
 
 #[test]
 fn test_poseidon_duplex() {
+    // TODO:
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
     use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
@@ -160,7 +161,7 @@ fn test_poseidon_duplex() {
     original_poseidon.absorb_single_value(input[0]);
     let expected = original_poseidon.squeeze_out_single();
 
-    let mut hasher = PoseidonHasher::<Bn256, STATE_WIDTH, RATE>::new(SpongeModes::Duplex(false));
+    let mut hasher = PoseidonHasher::<Bn256, STATE_WIDTH, RATE>::new_duplex();
     // TODO
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
@@ -170,6 +171,7 @@ fn test_poseidon_duplex() {
 
 #[test]
 fn test_rescue_duplex() {
+    // TODO:
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
     use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
@@ -186,7 +188,7 @@ fn test_rescue_duplex() {
     expected[0] = original_rescue.squeeze_out_single();
     expected[1] = original_rescue.squeeze_out_single();
 
-    let mut hasher = RescueHasher::<Bn256, STATE_WIDTH, RATE>::new(SpongeModes::Duplex(false));
+    let mut hasher = RescueHasher::<Bn256, STATE_WIDTH, RATE>::new_duplex();
     // TODO
     // hasher.absorb(input[0]);
     hasher.absorb(&input);
@@ -201,7 +203,7 @@ fn test_rescue_duplex() {
 fn test_sponge_phase_absorb() {
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
-    let mut sponge = RescueHasher::<Bn256, STATE_WIDTH, RATE>::new_sponge();
+    let mut sponge = RescueHasher::<Bn256, STATE_WIDTH, RATE>::default();
 
     sponge.absorb(&[Fr::one(); 2]);
     sponge.absorb(&[Fr::one(); 2]);
@@ -212,7 +214,7 @@ fn test_sponge_phase_absorb() {
 fn test_sponge_phase_squeeze() {
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
-    let mut sponge = RescueHasher::<Bn256, STATE_WIDTH, RATE>::new_sponge();
+    let mut sponge = RescueHasher::<Bn256, STATE_WIDTH, RATE>::default();
 
     sponge.squeeze(None);
 }

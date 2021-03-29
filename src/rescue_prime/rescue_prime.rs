@@ -54,6 +54,18 @@ impl<E: Engine, const S: usize, const R: usize> Default for RescuePrimeHasher<E,
         }
     }
 }
+impl<E: Engine, const S: usize, const R: usize> RescuePrimeHasher<E, S, R> {
+    fn new_duplex() -> Self {
+        let (params, alpha, alpha_inv) = crate::rescue_prime::params::rescue_prime_params();
+        Self {
+            state: [E::Fr::zero(); S],
+            params,
+            alpha,
+            alpha_inv,
+            sponge_mode: SpongeModes::Duplex(false),
+        }
+    }
+}
 
 // common parts of sponge
 sponge_impl!(RescuePrimeHasher<E, S, R>);
