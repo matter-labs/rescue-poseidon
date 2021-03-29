@@ -5,7 +5,7 @@ use crate::HasherParams;
 use crate::common::matrix::{compute_optimized_matrixes, mmul_assign, try_inverse};
 
 pub fn poseidon_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
-) -> (HasherParams<E,STATE_WIDTH, RATE>, E::Fr) {
+) -> (HasherParams<E, STATE_WIDTH, RATE>, E::Fr) {
     let security_level = 80;
     let full_rounds = 8;
     // let partial_rounds = 83;
@@ -15,7 +15,7 @@ pub fn poseidon_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
 
     let number_of_rounds = full_rounds + partial_rounds;
     let rounds_tag = b"Rescue_f";
-    params.compute_round_constants(number_of_rounds, rounds_tag);
+    params.compute_round_constants(number_of_rounds, rounds_tag);        
     params.compute_mds_matrix_for_poseidon();
 
     let alpha = E::Fr::from_str("5").unwrap();
@@ -23,7 +23,7 @@ pub fn poseidon_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
     (params, alpha)
 }
 
-pub(crate) fn poseidon_light_params<E: Engine, const RATE: usize, const STATE_WIDTH: usize>() -> (
+pub(crate) fn poseidon_light_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>() -> (
     HasherParams<E, STATE_WIDTH, RATE>,
     E::Fr,
     Vec<[E::Fr; STATE_WIDTH]>,
@@ -60,6 +60,11 @@ pub(crate) fn compute_optimized_round_constants<E: Engine, const STATE_WIDTH: us
     number_of_partial_rounds: usize,
     number_of_full_rounds: usize,
 ) -> Vec<[E::Fr; STATE_WIDTH]> {
+    assert_eq!(
+        constants.len(),
+        number_of_full_rounds + number_of_partial_rounds,
+        "non-optimized constants length does not match with total number of rounds"
+    );
     let mds_inverse = try_inverse::<E, STATE_WIDTH>(original_mds).expect("has inverse");
     let number_of_half_rounds = number_of_full_rounds / 2;
     let start = number_of_half_rounds;

@@ -59,7 +59,9 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HasherParams<E, STA
     }
 
     fn compute_round_constants(&mut self, number_of_rounds: usize, tag: &[u8]) {
-        let mut round_constants = Vec::with_capacity(number_of_rounds);
+        let total_round_constants = STATE_WIDTH * number_of_rounds; 
+
+        let mut round_constants = Vec::with_capacity(total_round_constants);
         let mut nonce = 0u32;
         let mut nonce_bytes = [0u8; 4];
 
@@ -82,13 +84,13 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HasherParams<E, STA
                 }
             }
 
-            if round_constants.len() == number_of_rounds {
+            if round_constants.len() == total_round_constants {
                 break;
             }
 
             nonce += 1;
         }
-
+        self.round_constants = vec![[E::Fr::zero(); STATE_WIDTH]; number_of_rounds];
         round_constants
             .chunks_exact(STATE_WIDTH)
             .zip(self.round_constants.iter_mut())
