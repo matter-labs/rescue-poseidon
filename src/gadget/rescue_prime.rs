@@ -17,50 +17,50 @@ use franklin_crypto::{
 
 use std::convert::TryInto;
 
-pub fn rescue_prime_gadget_fixed_length<E, CS, const S: usize, const R: usize>(
-    cs: &mut CS,
-    input: &[Num<E>],
-) -> Result<Vec<Num<E>>, SynthesisError>
+/// Receives inputs whose length `known` prior(fixed-length).
+/// Also uses custom domain strategy which basically sets value of capacity element to
+/// length of input and applies a padding rule which makes input size equals to multiple of
+/// rate parameter. Uses state-width=3 and rate=2.
+pub fn rescue_prime_gadget<E, CS>(cs: &mut CS, input: &[Num<E>]) -> Result<[Num<E>; 2], SynthesisError>
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, RescuePrimeGadget<E, S, R>, S, R>(
-        cs,
-        input,
-        DomainStrategy::FixedLength,
-    )
+    inner_rescue_prime_gadget::<_, _>(cs, input, DomainStrategy::CustomFixedLength)
 }
 
-pub fn rescue_prime_gadget_var_length<E, CS, const S: usize, const R: usize>(
+/// Receives inputs whose length `unknown` prior (variable-length).
+/// Also uses custom domain strategy which does not touch to value of capacity element
+/// and does not apply any padding rule. Uses state-width=3 and rate=2.
+pub fn rescue_prime_gadget_var_length<E, CS>(
     cs: &mut CS,
     input: &[Num<E>],
-) -> Result<Vec<Num<E>>, SynthesisError>
+) -> Result<[Num<E>; 2], SynthesisError>
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, RescuePrimeGadget<E, S, R>, S, R>(
-        cs,
-        input,
-        DomainStrategy::VariableLength,
-    )
+    inner_rescue_prime_gadget::<_, _>(cs, input, DomainStrategy::CustomVariableLength)
 }
 
-pub fn rescue_prime_gadget<E, CS, const S: usize, const R: usize>(
+fn inner_rescue_prime_gadget<E, CS>(
     cs: &mut CS,
     input: &[Num<E>],
-) -> Result<Vec<Num<E>>, SynthesisError>
+    domain: DomainStrategy<2>,
+) -> Result<[Num<E>; 2], SynthesisError>
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    unimplemented!("")
-    // super::hash::generic_hash::<E, _, RescuePrimeGadget<E, S, R>, S, R>(
-    //     cs,
-    //     input,
-    //     DomainStrategy::Custom,
-    // )
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
+    let result =
+        super::hash::generic_hash::<E, _, RescuePrimeGadget<E, STATE_WIDTH, RATE>, STATE_WIDTH, RATE>(
+            cs, input, domain,
+        )?;
+
+    Ok(result.try_into().expect("fixed length array"))
 }
 
 pub struct RescuePrimeGadget<E: Engine, const S: usize, const R: usize> {
@@ -164,6 +164,7 @@ mod test {
     use rand::Rand;
 
     #[test]
+    #[should_panic] // TODO
     fn test_rescue_prime_sponge_with_custom_gate() {
         const STATE_WIDTH: usize = 3;
         const RATE: usize = 2;

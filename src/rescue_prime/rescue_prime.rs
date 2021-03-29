@@ -7,10 +7,29 @@ use franklin_crypto::bellman::pairing::ff::Field;
 use franklin_crypto::bellman::pairing::Engine;
 use std::convert::TryInto;
 
-/// This hash function receives fixed length inputs and outputs
-/// number of elements as equal to rate parameter.
-/// This function apply fixed length padding strategy.
-pub fn rescue_prime_generic_fixed_length<
+/// Receives inputs whose length `known` prior(fixed-length).
+/// Also uses custom domain strategy which basically sets value of capacity element to
+/// length of input and applies a padding rule which makes input size equals to multiple of
+/// rate parameter. Uses state-width=3 and rate=2.
+pub fn rescue_prime_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+    
+    rescue_prime_generic_fixed_length::<E, STATE_WIDTH, RATE, L>(input)
+}
+
+/// Receives inputs whose length `unknown` prior (variable-length).
+/// Also uses custom domain strategy which does not touch to value of capacity element
+/// and does not apply any padding rule. Uses state-width=3 and rate=2.
+pub fn rescue_prime_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
+    // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
+    rescue_prime_generic_var_length::<E, STATE_WIDTH, RATE>(input)
+}
+
+pub(crate) fn rescue_prime_generic_fixed_length<
     E: Engine,
     const STATE_WIDTH: usize,
     const RATE: usize,
@@ -24,12 +43,10 @@ pub fn rescue_prime_generic_fixed_length<
             DomainStrategy::CustomFixedLength,
         );
 
-    result.try_into().expect("static vector")
+    result.try_into().expect("fixed length array")
 }
 
-/// A rescue_prime hash funciton outputs number of elements as equal to rate parameter
-/// This function apply variable length padding strategy.
-pub fn rescue_prime_generic_var_length<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
+pub(crate) fn rescue_prime_generic_var_length<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
     input: &[E::Fr],
 ) -> [E::Fr; RATE] {
     let result =
@@ -38,26 +55,9 @@ pub fn rescue_prime_generic_var_length<E: Engine, const STATE_WIDTH: usize, cons
             DomainStrategy::CustomVariableLength,
         );
 
-    result.try_into().expect("static vector")
+    result.try_into().expect("fixed length array")
 }
 
-/// This is hasher accepts inputs whose lenght known prior(fixed-length input). It uses custom padding 
-/// strategy  which basically sets value of capacity
-pub fn rescue_prime_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
-    const STATE_WIDTH: usize = 3;
-    const RATE: usize = 2;
-    
-    rescue_prime_generic_fixed_length::<E, STATE_WIDTH, RATE, L>(input)
-}
-
-/// This is hasher with a custom strategy which basically sets value of capacity
-// try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
-pub fn rescue_prime_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
-    const STATE_WIDTH: usize = 3;
-    const RATE: usize = 2;
-
-    rescue_prime_generic_var_length::<E, STATE_WIDTH, RATE>(input)
-}
 #[derive(Debug, Clone)]
 pub struct RescuePrimeHasher<E: Engine, const S: usize, const R: usize> {
     params: HasherParams<E, S, R>,
@@ -75,7 +75,6 @@ impl<E: Engine, const S: usize, const R: usize> Default for RescuePrimeHasher<E,
             params,
             alpha,
             alpha_inv,
-            // TODO
             sponge_mode: SpongeModes::Standard(false),
         }
     }
@@ -95,7 +94,6 @@ impl<E: Engine, const S: usize, const R: usize> RescuePrimeHasher<E, S, R> {
 
 // common parts of sponge
 sponge_impl!(RescuePrimeHasher<E, S, R>);
-// sponge_impl!(RescuePrimeHasher<E>, super::params::rescue_prime_params);
 
 impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescuePrimeHasher<E,S, R> {
     fn permutation(&mut self) {

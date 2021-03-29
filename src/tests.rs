@@ -156,15 +156,17 @@ fn test_poseidon_duplex() {
     let input = vec![el; 2];
 
     let original_params = Bn256PoseidonParams::new_checked_2_into_1();
-    let mut original_poseidon = PoseidonSponge::<Bn256>::new(&original_params);
-    original_poseidon.absorb_single_value(input[0]);
-    let expected = original_poseidon.squeeze_out_single();
+    let mut original_poseidon = PoseidonSponge::<Bn256>::new(&original_params);    
+    original_poseidon.absorb(&input);
+    let mut expected = [Fr::zero(); 2];
+    expected[0] = original_poseidon.squeeze_out_single();
+    expected[1] = original_poseidon.squeeze_out_single();
 
     let mut hasher = PoseidonHasher::<Bn256, STATE_WIDTH, RATE>::new_duplex();
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
 
-    assert_eq!(actual[0], expected);
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -178,9 +180,8 @@ fn test_rescue_duplex() {
     let input = vec![el; 2];
 
     let original_params = Bn256RescueParams::new_checked_2_into_1();
-    let mut original_rescue = StatefulRescue::<Bn256>::new(&original_params);
-    original_rescue.absorb_single_value(input[0]);
-    original_rescue.pad_if_necessary();
+    let mut original_rescue = StatefulRescue::<Bn256>::new(&original_params);    
+    original_rescue.absorb(&input);    
     let mut expected = vec![Fr::zero(); 2];
     expected[0] = original_rescue.squeeze_out_single();
     expected[1] = original_rescue.squeeze_out_single();

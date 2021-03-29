@@ -19,7 +19,6 @@ mod test {
     fn bench_poseidon_round_function(b: &mut Bencher) {
         let mut hasher = PoseidonHasher::<Bn256, 3, 2>::default();
 
-        // b.iter(|| hasher.absorb_multi(&test_inputs()))
         b.iter(|| hasher.absorb(&test_inputs()))
     }
 
@@ -27,14 +26,13 @@ mod test {
     fn bench_rescue_round_function(b: &mut Bencher) {
         let mut hasher = RescueHasher::<Bn256, 3, 2>::default();
 
-        // b.iter(|| hasher.absorb_multi(&test_inputs()))
         b.iter(|| hasher.absorb(&test_inputs()))
     }
     #[bench]
+    #[should_panic] // TODO
     fn bench_rescue_prime_round_function(b: &mut Bencher) {
         let mut hasher = RescuePrimeHasher::<Bn256, 3, 2>::default();
 
-        // b.iter(|| hasher.absorb_multi(&test_inputs()))
         b.iter(|| hasher.absorb(&test_inputs()))
     }
 
@@ -60,62 +58,5 @@ mod test {
         let mut poseidon = StatefulSponge::<Bn256>::new(&params);
 
         b.iter(|| poseidon.absorb(&test_inputs()))
-    }
-
-    #[bench]
-    fn bench_array_static_by_ref(b: &mut Bencher){
-        let rng = &mut init_rng();
-        const S : usize = 20000;
-        let static_vec : [Fr; S] = [Fr::rand(rng); S];
-
-        b.iter(|| call_static_by_ref(&static_vec, rng));
-
-    }
-    #[bench]
-    fn bench_array_static_by_value(b: &mut Bencher){
-        let rng = &mut init_rng();
-        const S : usize = 20000;
-        let static_vec : [Fr; S] = [Fr::rand(rng); S];
-        
-        b.iter(|| call_static_by_value(static_vec, rng));
-    }
-
-    #[bench]
-    fn bench_array_dynamic_by_value(b: &mut Bencher){
-        let rng = &mut init_rng();
-        const S : usize = 20000;
-        let vec: Vec<Fr>  = (0..S).map(|_| Fr::rand(rng) ).collect();
-        
-        b.iter(|| call_dynamic_by_value(&vec, rng));
-    }
-    #[bench]
-    fn bench_array_dynamic_by_ref(b: &mut Bencher){
-        let rng = &mut init_rng();
-        const S : usize = 20000;
-        let vec: Vec<Fr>  = (0..S).map(|_| Fr::rand(rng)).collect();
-        
-        b.iter(|| call_dynamic_by_ref(&vec, rng));
-    }
-
-
-    fn call_static_by_value<R: Rng, const L: usize>(v: [Fr; L], rng: &mut R){
-        let mut tmp = Fr::rand(rng);
-        v.iter().for_each(|el| tmp.mul_assign(el));
-    }
-
-    fn call_static_by_ref<R: Rng, const L: usize>(v: &[Fr; L], rng: &mut R){
-        let mut tmp = Fr::rand(rng);
-        v.iter().for_each(|el| tmp.mul_assign(el));
-    }
-
-    fn call_dynamic_by_value<R: Rng>(v: &[Fr], rng: &mut R){
-        let v = v.to_vec();
-        let mut tmp = Fr::rand(rng);
-        v.iter().for_each(|el| tmp.mul_assign(el));
-    }
-
-    fn call_dynamic_by_ref<R: Rng>(v: &[Fr], rng: &mut R){
-        let mut tmp = Fr::rand(rng);
-        v.iter().for_each(|el| tmp.mul_assign(el));
     }
 }

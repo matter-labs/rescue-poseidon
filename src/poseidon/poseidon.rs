@@ -1,5 +1,5 @@
-use crate::common::matrix::mmul_assign;
 use crate::common::domain_strategy::DomainStrategy;
+use crate::common::matrix::mmul_assign;
 use crate::sponge_impl;
 use crate::{common::hash::generic_hash_with_padding, HasherParams};
 use crate::{
@@ -10,10 +10,29 @@ use franklin_crypto::bellman::pairing::ff::Field;
 use franklin_crypto::bellman::pairing::Engine;
 use std::convert::TryInto;
 
-/// This hash function receives fixed length inputs and outputs
-/// number of elements as equal to rate parameter.
-/// This function apply fixed length padding strategy.
-pub fn poseidon_generic_fixed_length<
+/// Receives inputs whose length `known` prior(fixed-length).
+/// Also uses custom domain strategy which basically sets value of capacity element to
+/// length of input and applies a padding rule which makes input size equals to multiple of
+/// rate parameter. Uses state-width=3 and rate=2.
+pub fn poseidon_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
+    poseidon_generic_fixed_length::<E, STATE_WIDTH, RATE, L>(input)
+}
+
+/// Receives inputs whose length `unknown` prior (variable-length).
+/// Also uses custom domain strategy which does not touch to value of capacity element
+/// and does not apply any padding rule. Uses state-width=3 and rate=2.
+pub fn poseidon_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
+    // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
+    poseidon_generic_var_length::<E, STATE_WIDTH, RATE>(input)
+}
+
+pub(crate) fn poseidon_generic_fixed_length<
     E: Engine,
     const STATE_WIDTH: usize,
     const RATE: usize,
@@ -27,12 +46,14 @@ pub fn poseidon_generic_fixed_length<
             DomainStrategy::CustomFixedLength,
         );
 
-    result.try_into().expect("static vector")
+    result.try_into().expect("fixed length array")
 }
 
-/// A poseidon hash funciton outputs number of elements as equal to rate parameter
-/// This function apply variable length padding strategy.
-pub fn poseidon_generic_var_length<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
+pub(crate) fn poseidon_generic_var_length<
+    E: Engine,
+    const STATE_WIDTH: usize,
+    const RATE: usize,
+>(
     input: &[E::Fr],
 ) -> [E::Fr; RATE] {
     let result =
@@ -41,25 +62,7 @@ pub fn poseidon_generic_var_length<E: Engine, const STATE_WIDTH: usize, const RA
             DomainStrategy::CustomVariableLength,
         );
 
-    result.try_into().expect("static vector")
-}
-
-/// This is hasher accepts inputs whose lenght known prior(fixed-length input). It uses custom padding 
-/// strategy  which basically sets value of capacity
-pub fn poseidon_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
-    const STATE_WIDTH: usize = 3;
-    const RATE: usize = 2;
-    
-    poseidon_generic_fixed_length::<E, STATE_WIDTH, RATE, L>(input)
-}
-
-/// This is hasher with a custom strategy which basically sets value of capacity
-// try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
-pub fn poseidon_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
-    const STATE_WIDTH: usize = 3;
-    const RATE: usize = 2;
-
-    poseidon_generic_var_length::<E, STATE_WIDTH, RATE>(input)
+    result.try_into().expect("fixed length array")
 }
 
 #[derive(Clone, Debug)]
@@ -82,7 +85,6 @@ impl<E: Engine, const S: usize, const R: usize> Default for PoseidonHasher<E, S,
             params,
             optimized_round_constants,
             optimized_mds_matrixes,
-            // TODO
             sponge_mode: SpongeModes::Standard(false),
         }
     }

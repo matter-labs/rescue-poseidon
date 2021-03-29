@@ -21,5 +21,5 @@ pub(crate) fn generic_hash_with_padding<E: Engine, Sponge: StatefulSponge<E, S, 
 
     sponge.specialize(capacity_value);
     sponge.absorb(&input_with_padding);
-    sponge.squeeze(None) // TODO: what is the length of output?
+    sponge.squeeze(None)
 }

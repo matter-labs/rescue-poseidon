@@ -20,61 +20,52 @@ use franklin_crypto::{
     plonk::circuit::{allocated_num::Num, linear_combination::LinearCombination},
 };
 
-/// Constant-Input-Length Hashing.
-/// The capacity value is length x (2^64 ) + (o − 1) where o the output length.
-/// The padding consists of the field elements being 0.
-pub fn poseidon_gadget_fixed_length<E, CS, const S: usize, const R: usize>(
-    cs: &mut CS,
-    input: &[Num<E>],
-) -> Result<Vec<Num<E>>, SynthesisError>
+/// Receives inputs whose length `known` prior(fixed-length).
+/// Also uses custom domain strategy which basically sets value of capacity element to
+/// length of input and applies a padding rule which makes input size equals to multiple of
+/// rate parameter. Uses state-width=3 and rate=2.
+pub fn poseidon_gadget<E, CS>(cs: &mut CS, input: &[Num<E>]) -> Result<[Num<E>; 2], SynthesisError>
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
-        cs,
-        input,
-        DomainStrategy::FixedLength,
-    )
+    inner_poseidon_gadget::<_, _>(cs, input, DomainStrategy::CustomFixedLength)
 }
 
-/// Variable-Input-Length Hashing.
-/// The capacity value is 2^64 + (o − 1) where o the output length.
-/// The padding consists of one field element being 1, and the remaining elements being 0.
-///  padding is necessary for variable-length inputs, even if the input is already (without delimiter) a multiple of the rate in length.
-pub fn poseidon_gadget_var_length<E, CS, const S: usize, const R: usize>(
+/// Receives inputs whose length `unknown` prior (variable-length).
+/// Also uses custom domain strategy which does not touch to value of capacity element
+/// and does not apply any padding rule. Uses state-width=3 and rate=2.
+pub fn poseidon_gadget_var_length<E, CS>(
     cs: &mut CS,
     input: &[Num<E>],
-) -> Result<Vec<Num<E>>, SynthesisError>
+) -> Result<[Num<E>; 2], SynthesisError>
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
-        cs,
-        input,
-        DomainStrategy::VariableLength,
-    )
+    inner_poseidon_gadget::<_, _>(cs, input, DomainStrategy::CustomVariableLength)
 }
 
-/// Similar to function with variable length input but with a small difference.
-/// This function uses custom specialization with custom padding strategy.
-pub fn poseidon_gadget<E, CS, const S: usize, const R: usize>(
+fn inner_poseidon_gadget<E, CS>(
     cs: &mut CS,
     input: &[Num<E>],
-) -> Result<Vec<Num<E>>, SynthesisError>
+    domain: DomainStrategy<2>,
+) -> Result<[Num<E>; 2], SynthesisError>
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    unimplemented!();
-    // super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
-    //     cs,
-    //     input,
-    //     DomainStrategy::Custom,
-    // )
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
+    let result =
+        super::hash::generic_hash::<E, _, PoseidonGadget<E, STATE_WIDTH, RATE>, STATE_WIDTH, RATE>(
+            cs, input, domain,
+        )?;
+
+    Ok(result.try_into().expect("fixed length array"))
 }
-/// Stateful poseidon
+
 pub struct PoseidonGadget<E: Engine, const S: usize, const R: usize> {
     state: [LinearCombination<E>; S],
     params: HasherParams<E, S, R>,
@@ -104,8 +95,6 @@ impl<E: Engine, const S: usize, const R: usize> Default for PoseidonGadget<E, S,
 
 sponge_gadget_impl!(PoseidonGadget<E, S, R>);
 
-// permutation happens in 4 full, 33 partial and 4 full rounds consecutively
-// total cost 2 + 3*2 + 8*3*(2+2) = 104
 impl<E: Engine, const S: usize, const R: usize> GadgetSpongePermutation<E>
     for PoseidonGadget<E, S, R>
 {
@@ -164,8 +153,7 @@ impl<E: Engine, const S: usize, const R: usize> GadgetSpongePermutation<E>
             sbox_quintic::<E, _>(cs, &mut self.state[..1])?;
             self.state[0].add_assign_constant(round_constant[1][0]);
             self.state = mul_by_sparse_matrix(cs, &self.state, &sparse_matrix[1]);
-            // self.state = lc_to_num_to_lc(cs, &self.state)?;
-            // self.state.iter_mut().map(|s| s.into_num(cs).expect("into num"))
+            // reduce gate cost: LC -> Num -> LC
             for state in self.state.iter_mut() {
                 let num = state.clone().into_num(cs).expect("a num");
                 *state = LinearCombination::from(num.get_variable());
@@ -223,7 +211,7 @@ mod test {
         let mut el = Fr::one();
         el.double();
 
-        let input = vec![el; 2];
+        let input = vec![el; RATE];
 
         let input_as_num = input
             .iter()
@@ -231,10 +219,8 @@ mod test {
             .collect::<Vec<Num<Bn256>>>();
 
         let mut poseidon_light_gadget = PoseidonGadget::<_, STATE_WIDTH, RATE>::default();
-        poseidon_light_gadget
-            .absorb(cs, &input_as_num)
-            .unwrap();
-        let gadget_output : Vec<Num<Bn256>> = poseidon_light_gadget.squeeze(cs, None).unwrap();
+        poseidon_light_gadget.absorb(cs, &input_as_num).unwrap();
+        let gadget_output: Vec<Num<Bn256>> = poseidon_light_gadget.squeeze(cs, None).unwrap();
         cs.finalize();
         assert!(cs.is_satisfied());
 
@@ -243,9 +229,6 @@ mod test {
 
         // poseidon_light original
         let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256, 3, 2>::default();
-        // let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256>::default();
-        // TODO:
-        // poseidon_light.absorb_multi(&input);
         poseidon_light.absorb(&input);
         let output = poseidon_light.squeeze(None);
 
