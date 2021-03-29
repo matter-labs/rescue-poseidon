@@ -157,37 +157,35 @@ mod test {
     use super::RescueGadget;
     #[test]
     fn test_rescue_sponge_with_custom_gate() {
-        // TODO
-        // let rng = &mut init_rng();
-        // let cs = &mut init_cs::<Bn256>();
+        const STATE_WIDTH: usize = 3;
+        const RATE: usize = 2;
+        let rng = &mut init_rng();
+        let cs = &mut init_cs::<Bn256>();
 
-        // let mut inputs = vec![Fr::zero(); 2];
-        // let mut inputs_as_num = vec![Num::Constant(Fr::zero()); 2];
-        // for (i1, i2) in inputs.iter_mut().zip(inputs_as_num.iter_mut()) {
-        //     *i1 = Fr::rand(rng);
-        //     *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
-        // }
+        let mut inputs = vec![Fr::zero(); 2];
+        let mut inputs_as_num = vec![Num::Constant(Fr::zero()); 2];
+        for (i1, i2) in inputs.iter_mut().zip(inputs_as_num.iter_mut()) {
+            *i1 = Fr::rand(rng);
+            *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
+        }
 
-        // let mut gadget = RescueGadget::new();
-        // gadget.absorb_multi(cs, &inputs_as_num).unwrap();
-        // let gadget_output = gadget.squeeze(cs).unwrap();
+        let mut gadget = RescueGadget::<_, STATE_WIDTH, RATE>::new();
+        gadget.absorb(cs, &inputs_as_num).unwrap();
+        let gadget_output = gadget.squeeze(cs, None).unwrap();
 
-        // // cs.finalize();
-        // assert!(cs.is_satisfied());
+        // cs.finalize();
+        assert!(cs.is_satisfied());
 
-        // println!("number of gates {}", cs.n());
-        // println!("last step number {}", cs.get_current_step_number());
+        println!("number of gates {}", cs.n());
+        println!("last step number {}", cs.get_current_step_number());
 
-        // // rescue original
-        // let mut rescue = crate::rescue::RescueHasher::<Bn256, 3, 2>::default();
-        // // rescue.absorb_multi(&inputs);
-        // // TODO:
-        // rescue.absorb(&inputs);
-        // // let output = rescue.squeeze();
-        // let output = rescue.squeeze(None);
+        // rescue original
+        let mut rescue = crate::rescue::RescueHasher::<Bn256, STATE_WIDTH, RATE>::default();
+        rescue.absorb(&inputs);
+        let output = rescue.squeeze(None);
 
-        // for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
-        //     assert_eq!(gadget.get_value().unwrap(), *sponge);
-        // }
+        for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
+            assert_eq!(gadget.get_value().unwrap(), *sponge);
+        }
     }
 }

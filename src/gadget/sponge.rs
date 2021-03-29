@@ -21,7 +21,7 @@ pub trait GadgetSpongePermutation<E: Engine> {
 }
 
 #[derive(Clone, Debug)]
-pub enum SpongeModes{
+pub enum SpongeModes {
     // Standard mode is stateless
     Standard(bool),
     // Duplex is statefull and maximum number of element "l" one can request
@@ -35,10 +35,7 @@ pub trait GadgetSpongeMode<E: Engine> {
 }
 
 pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
-    GadgetSpongeState<E, S>
-    + GadgetSpongePermutation<E>    
-    + GadgetSpongeMode<E>
-    + Default
+    GadgetSpongeState<E, S> + GadgetSpongePermutation<E> + GadgetSpongeMode<E> + Default
 {
     fn specialize(&mut self, capacity_value: Option<LinearCombination<E>>) {
         let state = self.state_as_mut();
@@ -54,11 +51,10 @@ pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
         input: &[Num<E>],
     ) -> Result<(), SynthesisError> {
         assert!(!input.is_empty());
-        let rate = R;        
-        
+        let rate = R;
 
         match self.get_mode() {
-            SpongeModes::Standard(is_absorbed) =>  {
+            SpongeModes::Standard(is_absorbed) => {
                 assert_eq!(
                     input.len() % rate,
                     0,
@@ -69,10 +65,10 @@ pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
                     for (value, state) in elems.iter().zip(self.state_as_mut().iter_mut()) {
                         state.add_assign_number_with_coeff(value, E::Fr::one());
                     }
-                    self.permutation(cs, &Boolean::constant(true));
+                    self.permutation(cs, &Boolean::constant(true))?;
                     self.update_mode(SpongeModes::Standard(true));
                 }
-            },
+            }
             SpongeModes::Duplex(is_absorbed) => {
                 assert!(!is_absorbed, "Sponge should be in in absorbtion phase");
                 assert!(
@@ -85,19 +81,17 @@ pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
                 for (value, state) in input.iter().zip(self.state_as_mut().iter_mut()) {
                     state.add_assign_number_with_coeff(value, E::Fr::one());
                 }
-                self.permutation(cs, &Boolean::constant(true));
+                self.permutation(cs, &Boolean::constant(true))?;
                 self.update_mode(SpongeModes::Standard(true));
-
             }
         }
         Ok(())
     }
 
-
     fn squeeze<CS: ConstraintSystem<E>>(
         &mut self,
         cs: &mut CS,
-        number_of_elems: Option<usize>
+        number_of_elems: Option<usize>,
     ) -> Result<Vec<Num<E>>, SynthesisError> {
         let rate = R;
 
@@ -120,7 +114,7 @@ pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
 
                         for _ in 0..number_of_iters {
                             out.extend_from_slice(&self.state_as_ref()[..rate]);
-                            self.permutation(cs, &Boolean::constant(true));
+                            self.permutation(cs, &Boolean::constant(true))?;
                         }
 
                         out.truncate(original_number_of_elems);
@@ -149,11 +143,13 @@ pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
             }
         }
 
-        let out: Vec<Num<E>> = out.iter().map(|s| s.clone().into_num(cs).expect("a num")).collect();
+        let out: Vec<Num<E>> = out
+            .iter()
+            .map(|s| s.clone().into_num(cs).expect("a num"))
+            .collect();
 
         Ok(out)
     }
-
 
     fn reset(&mut self) {
         self.state_as_mut()
@@ -162,11 +158,13 @@ pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
     }
 }
 
-
 #[macro_export]
 macro_rules! sponge_gadget_impl {
     ($hasher_name:ty) => {
-        impl<E: Engine, const S: usize, const R: usize> StatefulSpongeGadget<E, S, R> for $hasher_name {}
+        impl<E: Engine, const S: usize, const R: usize> StatefulSpongeGadget<E, S, R>
+            for $hasher_name
+        {
+        }
 
         impl<E: Engine, const S: usize, const R: usize> GadgetSpongeState<E, S> for $hasher_name {
             fn state_as_ref(&self) -> &[LinearCombination<E>; S] {

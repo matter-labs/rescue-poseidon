@@ -214,41 +214,42 @@ mod test {
     use crate::tests::init_cs;
     #[test]
     fn test_poseidon_light_sponge_with_custom_gate() {
-
+        const STATE_WIDTH: usize = 3;
+        const RATE: usize = 2;
         // TODO
-        // let cs = &mut init_cs();
+        let cs = &mut init_cs();
 
-        // let mut el = Fr::one();
-        // el.double();
+        let mut el = Fr::one();
+        el.double();
 
-        // let input = vec![el; 2];
+        let input = vec![el; 2];
 
-        // let input_as_num = input
-        //     .iter()
-        //     .map(|el| Num::Variable(AllocatedNum::alloc(cs, || Ok(*el)).unwrap()))
-        //     .collect::<Vec<Num<Bn256>>>();
+        let input_as_num = input
+            .iter()
+            .map(|el| Num::Variable(AllocatedNum::alloc(cs, || Ok(*el)).unwrap()))
+            .collect::<Vec<Num<Bn256>>>();
 
-        // let mut poseidon_light_gadget = PoseidonGadget::default();
-        // poseidon_light_gadget
-        //     .absorb_multi(cs, &input_as_num)
-        //     .unwrap();
-        // let gadget_output : Vec<Num<Bn256>> = poseidon_light_gadget.squeeze(cs).unwrap();
-        // cs.finalize();
-        // assert!(cs.is_satisfied());
+        let mut poseidon_light_gadget = PoseidonGadget::<_, STATE_WIDTH, RATE>::default();
+        poseidon_light_gadget
+            .absorb(cs, &input_as_num)
+            .unwrap();
+        let gadget_output : Vec<Num<Bn256>> = poseidon_light_gadget.squeeze(cs, None).unwrap();
+        cs.finalize();
+        assert!(cs.is_satisfied());
 
-        // println!("number of gates {}", cs.n());
-        // println!("last step number {}", cs.get_current_step_number());
+        println!("number of gates {}", cs.n());
+        println!("last step number {}", cs.get_current_step_number());
 
-        // // poseidon_light original
-        // let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256, 3, 2>::default();
-        // // let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256>::default();
-        // // TODO:
-        // // poseidon_light.absorb_multi(&input);
-        // poseidon_light.absorb(&input);
-        // let output = poseidon_light.squeeze(None);
+        // poseidon_light original
+        let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256, 3, 2>::default();
+        // let mut poseidon_light = crate::poseidon::PoseidonHasher::<Bn256>::default();
+        // TODO:
+        // poseidon_light.absorb_multi(&input);
+        poseidon_light.absorb(&input);
+        let output = poseidon_light.squeeze(None);
 
-        // for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
-        //     assert_eq!(gadget.get_value().unwrap(), *sponge);
-        // }
+        for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
+            assert_eq!(gadget.get_value().unwrap(), *sponge);
+        }
     }
 }

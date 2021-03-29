@@ -164,39 +164,39 @@ mod test {
 
     #[test]
     fn test_rescue_prime_sponge_with_custom_gate() {
+        const STATE_WIDTH: usize = 3;
+        const RATE: usize = 2;
+        let rng = &mut init_rng();
+        let cs = &mut init_cs::<Bn256>();
+
+        let mut inputs = vec![Fr::zero(); RATE];
+        let mut inputs_as_num = vec![Num::Constant(Fr::zero()); 2];
+        for (i1, i2) in inputs.iter_mut().zip(inputs_as_num.iter_mut()) {
+            *i1 = Fr::rand(rng);
+            *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
+        }
+
+        let mut rescue_prime_gadget = RescuePrimeGadget::<_, STATE_WIDTH, RATE>::new();
+        rescue_prime_gadget
+            .absorb(cs, &inputs_as_num)
+            .unwrap();
+        let gadget_output = rescue_prime_gadget.squeeze(cs, None).unwrap();
+        // cs.finalize();
+        // assert!(cs.is_satisfied());
+
+        println!("number of gates {}", cs.n());
+        println!("last step number {}", cs.get_current_step_number());
+
+        // rescue prime original
+        let mut rescue_prime = crate::rescue_prime::RescuePrimeHasher::<Bn256, STATE_WIDTH, RATE>::default();
         // TODO
-        // let rng = &mut init_rng();
-        // let cs = &mut init_cs::<Bn256>();
-
-        // let mut inputs = vec![Fr::zero(); 2];
-        // let mut inputs_as_num = vec![Num::Constant(Fr::zero()); 2];
-        // for (i1, i2) in inputs.iter_mut().zip(inputs_as_num.iter_mut()) {
-        //     *i1 = Fr::rand(rng);
-        //     *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
-        // }
-
-        // let mut rescue_prime_gadget = RescuePrimeGadget::new();
-        // rescue_prime_gadget
-        //     .absorb_multi(cs, &inputs_as_num)
-        //     .unwrap();
-        // let gadget_output = rescue_prime_gadget.squeeze(cs).unwrap();
-        // // cs.finalize();
-        // // assert!(cs.is_satisfied());
-
-        // println!("number of gates {}", cs.n());
-        // println!("last step number {}", cs.get_current_step_number());
-
-        // // rescue prime original
-        // let mut rescue_prime = crate::rescue_prime::RescuePrimeHasher::<Bn256, 3, 2>::default();
-        // // TODO
-        // // rescue_prime.absorb_multi(&inputs);
-        // rescue_prime.absorb(&inputs);
-        // // let output = rescue_prime.squeeze();
-        // let output = rescue_prime.squeeze(None);
+        rescue_prime.absorb(&inputs);
+        // let output = rescue_prime.squeeze();
+        let output = rescue_prime.squeeze(None);
 
 
-        // for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
-        //     assert_eq!(gadget.get_value().unwrap(), *sponge);
-        // }
+        for (sponge, gadget) in output.iter().zip(gadget_output.iter()) {
+            assert_eq!(gadget.get_value().unwrap(), *sponge);
+        }
     }
 }
