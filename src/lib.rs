@@ -47,8 +47,8 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HasherParams<E, STA
         }
     }
 
-    pub fn constants_of_round(&self, round: usize) -> &[E::Fr] {
-        &self.round_constants[round]
+    pub fn constants_of_round(&self, round: usize) -> [E::Fr; STATE_WIDTH] {
+        self.round_constants[round]
     }
 
     pub fn round_constants(&self) -> &[[E::Fr; STATE_WIDTH]] {

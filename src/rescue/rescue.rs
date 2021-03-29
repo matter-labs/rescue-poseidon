@@ -1,9 +1,7 @@
 use crate::common::{
     hash::generic_hash_with_padding, matrix::mmul_assign, padding::PaddingStrategy, sbox::sbox,
 };
-use crate::sponge::{
-    SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge,
-};
+use crate::sponge::{SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge};
 use crate::sponge_impl;
 use crate::HasherParams;
 use franklin_crypto::bellman::{Engine, Field};
@@ -12,16 +10,13 @@ use franklin_crypto::bellman::{Engine, Field};
 pub fn rescue_hash_fixed_length<E: Engine, const S: usize, const R: usize>(
     input: &[E::Fr],
 ) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E, S, R>, S, R>(
-        input,
-        PaddingStrategy::FixedLength,
-    )
+    generic_hash_with_padding::<E, RescueHasher<E, S, R>, S, R>(input, PaddingStrategy::FixedLength)
 }
 
 /// The capacity value is 264 + (o − 1) where o the output length.
 /// The padding consists of one field element being 1, and the remaining elements being 0.
 pub fn rescue_var_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E, S, R>,S, R>(
+    generic_hash_with_padding::<E, RescueHasher<E, S, R>, S, R>(
         input,
         PaddingStrategy::VariableLength,
     )
@@ -29,9 +24,8 @@ pub fn rescue_var_length<E: Engine, const S: usize, const R: usize>(input: &[E::
 
 /// This is hasher with a custom strategy which basically sets value of capacity
 pub fn rescue_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E, S, R>,S, R>(input, PaddingStrategy::Custom)
+    generic_hash_with_padding::<E, RescueHasher<E, S, R>, S, R>(input, PaddingStrategy::Custom)
 }
-
 
 #[derive(Debug, Clone)]
 pub struct RescueHasher<E: Engine, const S: usize, const R: usize> {
@@ -46,7 +40,7 @@ impl<E: Engine, const S: usize, const R: usize> Default for RescueHasher<E, S, R
     fn default() -> Self {
         let (params, alpha, alpha_inv) = super::params::rescue_params();
         Self {
-            state: [E::Fr::zero(); S],            
+            state: [E::Fr::zero(); S],
             params,
             alpha,
             alpha_inv: alpha_inv.expect("inverse of alpha"),
