@@ -199,7 +199,3 @@ pub(crate) fn compute_gcd<E: Engine>(n: u64) -> Option<E::Fr> {
 
     E::Fr::from_repr(alpha_inv_repr).ok()
 }
-
-pub(crate) fn init_old_poseidon_params() -> poseidon_hash::bn256::Bn256PoseidonParams {
-    poseidon_hash::bn256::Bn256PoseidonParams::new_checked_2_into_1()
-}

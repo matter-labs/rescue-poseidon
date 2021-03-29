@@ -1,7 +1,7 @@
 use crate::common::domain_strategy::DomainStrategy;
 use crate::common::matrix::mmul_assign;
 use crate::sponge_impl;
-use crate::{common::hash::generic_hash_with_padding, HasherParams};
+use crate::{common::hash::generic_hash_with_padding, common::params::HasherParams};
 use crate::{
     common::sbox::sbox,
     sponge::{SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge},

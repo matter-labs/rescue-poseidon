@@ -1,6 +1,5 @@
 use franklin_crypto::bellman::pairing::ff::Field;
 use franklin_crypto::bellman::pairing::Engine;
-// use poseidon_hash::StatefulSponge;
 
 pub(crate) mod state;
 pub trait SpongeState<E: Engine, const S: usize> {
@@ -45,8 +44,7 @@ pub trait StatefulSponge<E: Engine, const S: usize, const R: usize>:
         assert!(!input.is_empty());
         let rate = R;
 
-        match self.get_mode() {
-            // TODO
+        match self.get_mode() {            
             SpongeModes::Standard(is_absorbed) => {
                 assert_eq!(
                     input.len() % rate,
@@ -59,7 +57,6 @@ pub trait StatefulSponge<E: Engine, const S: usize, const R: usize>:
                         state.add_assign(el);
                     }
                     self.permutation();
-                    // *is_absorbed = true; // absorbed
                     self.update_mode(SpongeModes::Standard(true));
                 }
             }
@@ -69,9 +66,6 @@ pub trait StatefulSponge<E: Engine, const S: usize, const R: usize>:
                     input.len() <= rate,
                     "duplex sponge can absorb max rate elems"
                 );
-                // If state already squeezed then discard buffer. We don't need to
-                // accumulate any value here because we alread stored in top of function
-                // TODO
                 for (el, state) in input.iter().zip(self.state_as_mut().iter_mut()) {
                     state.add_assign(el);
                 }

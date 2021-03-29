@@ -18,8 +18,7 @@ macro_rules! stateful_transcript {
             }
 
             fn get_challenge(&mut self) -> E::Fr {
-                // TODO
-                // self.sponge.squeeze_single()
+                // TODO                
                 self.sponge.squeeze(None)[0]
             }
         }

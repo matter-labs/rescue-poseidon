@@ -1,6 +1,6 @@
 use franklin_crypto::bellman::{Engine, PrimeField};
 
-use crate::HasherParams;
+use crate::common::params::HasherParams;
 
 pub fn rescue_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>() -> (HasherParams<E, STATE_WIDTH, RATE>, E::Fr, Option<E::Fr>) {
     let full_rounds = 22;

@@ -85,7 +85,6 @@ pub(crate) fn sub_matrix<E: Engine, const DIM: usize, const SUBDIM: usize>(
     let mut sub_matrix = [[E::Fr::zero(); SUBDIM]; SUBDIM];
 
     for (row_id, row) in matrix[row_range].iter().enumerate() {
-        // TODO: clone?
         for (col_id, col) in row[col_range.clone()].iter().enumerate() {            
             sub_matrix[row_id][col_id] = *col;
         }
@@ -458,11 +457,6 @@ mod test {
             let expected = [[two, one], [one, two]];
             let actual = sub_matrix::<Bn256, DIM, SUBDIM>(&matrix, 1..3, 1..3);
             assert_eq!(expected, actual);
-        }
-        {
-            // let expected = [[two], [three], [two]];
-            // let actual = sub_matrix::<Bn256, DIM, SUBDIM>(&matrix, 0..2, 0..2);
-            // assert_eq!(expected, actual); TODO
         }
     }
 

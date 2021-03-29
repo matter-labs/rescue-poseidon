@@ -2,7 +2,7 @@ use crate::{common::matrix::mmul_assign};
 use crate::common::{hash::generic_hash_with_padding, domain_strategy::DomainStrategy, sbox::sbox};
 use crate::sponge::{SpongePermutation, SpongeState, StatefulSponge, SpongeMode, SpongeModes};
 use crate::sponge_impl;
-use crate::HasherParams;
+use crate::common::params::HasherParams;
 use franklin_crypto::bellman::pairing::ff::Field;
 use franklin_crypto::bellman::pairing::Engine;
 use std::convert::TryInto;

@@ -74,10 +74,7 @@ pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
                 assert!(
                     input.len() <= rate,
                     "duplex sponge can absorb max rate elems"
-                );
-                // If state already squeezed then discard buffer. We don't need to
-                // accumulate any value here because we alread stored in top of function
-                // TODO
+                );                            
                 for (value, state) in input.iter().zip(self.state_as_mut().iter_mut()) {
                     state.add_assign_number_with_coeff(value, E::Fr::one());
                 }

@@ -6,7 +6,7 @@ use super::{
     },
     utils::matrix_vector_product,
 };
-use crate::{common::domain_strategy::DomainStrategy, sponge_gadget_impl, HasherParams};
+use crate::{common::domain_strategy::DomainStrategy, sponge_gadget_impl, common::params::HasherParams};
 use franklin_crypto::{
     bellman::plonk::better_better_cs::cs::ConstraintSystem, plonk::circuit::boolean::Boolean,
 };

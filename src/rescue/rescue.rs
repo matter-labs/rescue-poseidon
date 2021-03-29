@@ -4,7 +4,7 @@ use crate::common::{
 };
 use crate::sponge::{SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge};
 use crate::sponge_impl;
-use crate::HasherParams;
+use crate::common::params::HasherParams;
 use franklin_crypto::bellman::{Engine, Field};
 use std::convert::TryInto;
 

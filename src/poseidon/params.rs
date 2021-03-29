@@ -1,6 +1,6 @@
 use franklin_crypto::bellman::{Engine, Field, PrimeField};
 
-use crate::HasherParams;
+use crate::common::params::HasherParams;
 
 use crate::common::matrix::{compute_optimized_matrixes, mmul_assign, try_inverse};
 
@@ -41,8 +41,8 @@ pub(crate) fn poseidon_light_params<E: Engine, const STATE_WIDTH: usize, const R
         params.full_rounds,
     );
 
-    // TODO:
-    const SUBDIM: usize = 2;
+    
+    const SUBDIM: usize = 2; // TODO:
     let optimized_matrixes = compute_optimized_matrixes::<E, STATE_WIDTH, SUBDIM>(
         params.partial_rounds,
         &params.mds_matrix,

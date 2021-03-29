@@ -10,19 +10,33 @@ use rand::{chacha::ChaChaRng, Rng, SeedableRng};
 use crate::common::utils::construct_mds_matrix;
 
 #[derive(Debug, Clone)]
-pub struct HasherParams<E: Engine, const RATE: usize, const STATE_WIDTH: usize> {
+pub struct HasherParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
     pub security_level: usize,
     pub full_rounds: usize,
     pub partial_rounds: usize,
-    round_constants: Vec<[E::Fr; STATE_WIDTH]>,
-    mds_matrix: [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
+    pub round_constants: Vec<[E::Fr; STATE_WIDTH]>,
+    pub mds_matrix: [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
 }
 
 type H = BlakeHasher;
 
-impl<E: Engine, const RATE: usize, const STATE_WIDTH: usize> HasherParams<E, RATE, STATE_WIDTH> {
-    pub fn constants_of_round(&self, round: usize) -> &[E::Fr] {
-        &self.round_constants[round]
+impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HasherParams<E, STATE_WIDTH, RATE> {
+    pub fn new(security_level: usize, full_rounds: usize, partial_rounds: usize) -> Self {
+        assert_ne!(RATE, 0);
+        assert_ne!(STATE_WIDTH, 0);
+        assert_ne!(full_rounds, 0);
+
+        Self {
+            security_level,
+            full_rounds,
+            partial_rounds,
+            round_constants: vec![[E::Fr::zero(); STATE_WIDTH]],
+            mds_matrix: [[E::Fr::zero(); STATE_WIDTH]; STATE_WIDTH],
+        }
+    }
+
+    pub fn constants_of_round(&self, round: usize) -> [E::Fr; STATE_WIDTH] {
+        self.round_constants[round]
     }
 
     pub fn round_constants(&self) -> &[[E::Fr; STATE_WIDTH]] {
@@ -32,8 +46,10 @@ impl<E: Engine, const RATE: usize, const STATE_WIDTH: usize> HasherParams<E, RAT
         &self.mds_matrix
     }
 
-    fn compute_round_constants(&mut self, number_of_rounds_constants: usize, tag: &[u8]) {
-        let mut round_constants = Vec::with_capacity(number_of_rounds_constants);
+    pub(crate) fn compute_round_constants(&mut self, number_of_rounds: usize, tag: &[u8]) {
+        let total_round_constants = STATE_WIDTH * number_of_rounds; 
+
+        let mut round_constants = Vec::with_capacity(total_round_constants);
         let mut nonce = 0u32;
         let mut nonce_bytes = [0u8; 4];
 
@@ -56,13 +72,13 @@ impl<E: Engine, const RATE: usize, const STATE_WIDTH: usize> HasherParams<E, RAT
                 }
             }
 
-            if round_constants.len() == number_of_rounds_constants {
+            if round_constants.len() == total_round_constants {
                 break;
             }
 
             nonce += 1;
         }
-
+        self.round_constants = vec![[E::Fr::zero(); STATE_WIDTH]; number_of_rounds];
         round_constants
             .chunks_exact(STATE_WIDTH)
             .zip(self.round_constants.iter_mut())
@@ -71,18 +87,18 @@ impl<E: Engine, const RATE: usize, const STATE_WIDTH: usize> HasherParams<E, RAT
             });
     }
 
-    fn compute_mds_matrix_for_poseidon(&mut self) {
+    pub(crate) fn compute_mds_matrix_for_poseidon(&mut self) {
         let rng = &mut init_rng_for_poseidon();
         self.compute_mds_matrix(rng)
     }
 
-    fn compute_mds_matrix_for_rescue(&mut self) {
+    pub(crate) fn compute_mds_matrix_for_rescue(&mut self) {
         let rng = &mut init_rng_for_rescue();
         self.compute_mds_matrix(rng)
     }
 
     fn compute_mds_matrix<R: Rng>(&mut self, rng: &mut R) {
-        self.mds_matrix =  construct_mds_matrix::<E, _, STATE_WIDTH>(rng);
+        self.mds_matrix = construct_mds_matrix::<E, _, STATE_WIDTH>(rng);
     }
 }
 

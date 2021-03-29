@@ -1,4 +1,4 @@
-use crate::HasherParams;
+use crate::common::params::HasherParams;
 use franklin_crypto::bellman::pairing::ff::{PrimeFieldRepr, ScalarEngine};
 use franklin_crypto::bellman::pairing::Engine;
 extern crate num_bigint;
@@ -154,14 +154,13 @@ pub fn rescue_prime_params<E: Engine, const STATE_WIDTH: usize, const RATE: usiz
     let alpha = alpha.to_u32_digits()[0] as usize;
     let number_of_rounds = get_number_of_rounds(STATE_WIDTH, RATE, security_level, alpha);
 
-    // TODO: double check
+
     let mut params = HasherParams::new(security_level, number_of_rounds, 0);
     params.round_constants = compute_round_constants::<E, STATE_WIDTH>(
         &modulus_bytes,
-        p_big,
-        // TODO
+        p_big,        
         STATE_WIDTH,
-        STATE_WIDTH - RATE,
+        STATE_WIDTH - RATE, // TODO: remove them
         security_level,
         number_of_rounds,
     );

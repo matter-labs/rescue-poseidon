@@ -8,7 +8,7 @@ use super::{
     },
     utils::matrix_vector_product,
 };
-use crate::{common::domain_strategy::DomainStrategy, sponge_gadget_impl, HasherParams};
+use crate::{common::domain_strategy::DomainStrategy, sponge_gadget_impl, common::params::HasherParams};
 use franklin_crypto::{
     bellman::plonk::better_better_cs::cs::ConstraintSystem, plonk::circuit::boolean::Boolean,
 };
@@ -134,7 +134,6 @@ impl<E: Engine, const S: usize, const R: usize> GadgetSpongePermutation<E>
 
         let mut constants_for_partial_rounds = optimized_round_constants
             [half_of_full_rounds + 1..half_of_full_rounds + self.params.partial_rounds]
-            // TODOC
             .to_vec();
         constants_for_partial_rounds.push([E::Fr::zero(); S]);
         // in order to reduce gate number we merge two consecutive iteration

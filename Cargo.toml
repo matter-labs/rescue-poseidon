@@ -1,16 +1,17 @@
 [package]
 name = "rescue_poseidon"
-version = "0.1.0"
+description = "Sponge construction based Algebraic Hash Functions"
+keywords = ["poseidon", "rescue", "rescue prime", "sponge", "duplex sponge", "algebraic hash function", "arithmetization oriented hash function"]
+version = "0.2.0"
 authors = ["Sait Imamoglu <si@matterlabs.dev>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# bellman = {package = "bellman_ce", path = "../bellman" }
-# TODO: update deps git to package
-# franklin_crypto = {package = "franklin-crypto", git = "https://github.com/matter-labs/franklin-crypto", branc = "dev"}
-franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
+
+franklin_crypto = {package = "franklin-crypto", features = ["plonk"], git = "https://github.com/matter-labs/franklin-crypto", branch = "beta"}
+# franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
 num-bigint = "0.3"
 num-integer = "0.1"
 num-iter = "0.1"
@@ -18,8 +19,12 @@ rand = "0.4"
 byteorder = "1"
 num-traits = "0.2"
 sha3 = "0.9.1"
-# poseidon_hash = {git = "https://github.com/shamatar/poseidon_hash"}
-poseidon_hash = {path = "../../shamatar/poseidon_hash"}
+
+
+[dev-dependencies]
+# reference poseidon does not uses specialization so some tests will fail.
+poseidon_hash = {git = "https://github.com/shamatar/poseidon_hash"}
+# poseidon_hash = {path = "../../shamatar/poseidon_hash"}
 
 [profile.bench]
 opt-level = 3

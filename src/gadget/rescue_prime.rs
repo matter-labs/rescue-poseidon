@@ -4,7 +4,7 @@ use super::sponge::{
 };
 use super::{sbox::*, utils::matrix_vector_product};
 use crate::sponge_gadget_impl;
-use crate::{common::domain_strategy::DomainStrategy, HasherParams};
+use crate::{common::domain_strategy::DomainStrategy, common::params::HasherParams};
 use franklin_crypto::{
     bellman::plonk::better_better_cs::cs::ConstraintSystem, plonk::circuit::boolean::Boolean,
 };
@@ -191,9 +191,8 @@ mod test {
 
         // rescue prime original
         let mut rescue_prime = crate::rescue_prime::RescuePrimeHasher::<Bn256, STATE_WIDTH, RATE>::default();
-        // TODO
         rescue_prime.absorb(&inputs);
-        // let output = rescue_prime.squeeze();
+
         let output = rescue_prime.squeeze(None);
 
 
