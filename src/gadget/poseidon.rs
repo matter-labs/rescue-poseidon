@@ -23,7 +23,7 @@ use franklin_crypto::{
 /// Constant-Input-Length Hashing.
 /// The capacity value is length x (2^64 ) + (o − 1) where o the output length.
 /// The padding consists of the field elements being 0.
-pub fn poseidon_gadget_fixed_length<E, CS, const R: usize, const S: usize>(
+pub fn poseidon_gadget_fixed_length<E, CS, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<Vec<Num<E>>, SynthesisError>
@@ -31,7 +31,7 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, PoseidonGadget<E, R, S>, R, S>(
+    super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
         cs,
         input,
         PaddingStrategy::FixedLength,
@@ -42,7 +42,7 @@ where
 /// The capacity value is 2^64 + (o − 1) where o the output length.
 /// The padding consists of one field element being 1, and the remaining elements being 0.
 ///  padding is necessary for variable-length inputs, even if the input is already (without delimiter) a multiple of the rate in length.
-pub fn poseidon_gadget_var_length<E, CS, const R: usize, const S: usize>(
+pub fn poseidon_gadget_var_length<E, CS, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<Vec<Num<E>>, SynthesisError>
@@ -50,7 +50,7 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, PoseidonGadget<E, R, S>, R, S>(
+    super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
         cs,
         input,
         PaddingStrategy::VariableLength,
@@ -59,7 +59,7 @@ where
 
 /// Similar to function with variable length input but with a small difference.
 /// This function uses custom specialization with custom padding strategy.
-pub fn poseidon_gadget<E, CS, const R: usize, const S: usize>(
+pub fn poseidon_gadget<E, CS, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<Vec<Num<E>>, SynthesisError>
@@ -67,22 +67,22 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, PoseidonGadget<E, R, S>, R, S>(
+    super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
         cs,
         input,
         PaddingStrategy::Custom,
     )
 }
 /// Stateful poseidon
-pub struct PoseidonGadget<E: Engine, const R: usize, const S: usize> {
+pub struct PoseidonGadget<E: Engine, const S: usize, const R: usize> {
     state: [LinearCombination<E>; S],
-    params: HasherParams<E, R, S>,
+    params: HasherParams<E, S, R>,
     optimized_round_constants: Vec<[E::Fr; S]>,
     optimized_mds_matrixes: ([[E::Fr; S]; S], Vec<[[E::Fr; S]; S]>),
     sponge_mode: SpongeModes,
 }
 
-impl<E: Engine, const R: usize, const S: usize> Default for PoseidonGadget<E, R, S> {
+impl<E: Engine, const S: usize, const R: usize> Default for PoseidonGadget<E, S, R> {
     fn default() -> Self {
         let (params, _, optimized_round_constants, optimized_mds_matrixes) =
             crate::poseidon::params::poseidon_light_params();
@@ -101,12 +101,12 @@ impl<E: Engine, const R: usize, const S: usize> Default for PoseidonGadget<E, R,
     }
 }
 
-sponge_gadget_impl!(PoseidonGadget<E, R, S>);
+sponge_gadget_impl!(PoseidonGadget<E, S, R>);
 
 // permutation happens in 4 full, 33 partial and 4 full rounds consecutively
 // total cost 2 + 3*2 + 8*3*(2+2) = 104
-impl<E: Engine, const R: usize, const S: usize> GadgetSpongePermutation<E>
-    for PoseidonGadget<E, R, S>
+impl<E: Engine, const S: usize, const R: usize> GadgetSpongePermutation<E>
+    for PoseidonGadget<E, S, R>
 {
     fn permutation<CS: ConstraintSystem<E>>(
         &mut self,

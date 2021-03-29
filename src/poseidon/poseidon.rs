@@ -35,7 +35,7 @@ pub fn poseidon_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr])
 
 #[derive(Clone, Debug)]
 pub struct PoseidonHasher<E: Engine, const S: usize, const R: usize> {
-    params: HasherParams<E, R, S>,
+    params: HasherParams<E, S, R>,
     state: [E::Fr; S],
     alpha: E::Fr,
     optimized_round_constants: Vec<[E::Fr; S]>,

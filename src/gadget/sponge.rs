@@ -34,7 +34,7 @@ pub trait GadgetSpongeMode<E: Engine> {
     fn update_mode(&mut self, mode: SpongeModes);
 }
 
-pub trait StatefulSpongeGadget<E: Engine, const R: usize, const S: usize>:
+pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
     GadgetSpongeState<E, S>
     + GadgetSpongePermutation<E>    
     + GadgetSpongeMode<E>
@@ -166,9 +166,9 @@ pub trait StatefulSpongeGadget<E: Engine, const R: usize, const S: usize>:
 #[macro_export]
 macro_rules! sponge_gadget_impl {
     ($hasher_name:ty) => {
-        impl<E: Engine, const R: usize, const S: usize> StatefulSpongeGadget<E, R, S> for $hasher_name {}
+        impl<E: Engine, const S: usize, const R: usize> StatefulSpongeGadget<E, S, R> for $hasher_name {}
 
-        impl<E: Engine, const R: usize, const S: usize> GadgetSpongeState<E, S> for $hasher_name {
+        impl<E: Engine, const S: usize, const R: usize> GadgetSpongeState<E, S> for $hasher_name {
             fn state_as_ref(&self) -> &[LinearCombination<E>; S] {
                 &self.state
             }
@@ -177,7 +177,7 @@ macro_rules! sponge_gadget_impl {
             }
         }
 
-        impl<E: Engine, const R: usize, const S: usize> GadgetSpongeMode<E> for $hasher_name {
+        impl<E: Engine, const S: usize, const R: usize> GadgetSpongeMode<E> for $hasher_name {
             fn get_mode(&self) -> SpongeModes {
                 self.sponge_mode.to_owned()
             }

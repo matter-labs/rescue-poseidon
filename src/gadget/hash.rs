@@ -7,7 +7,7 @@ use franklin_crypto::{
 
 // This function specializes sponge construction, computes required
 // values for padding and outputs hash of pre-image. 
-pub(crate) fn generic_hash<E: Engine, CS: ConstraintSystem<E>, SPONGE: StatefulSpongeGadget<E, R, S>, const R: usize, const S: usize>(
+pub(crate) fn generic_hash<E: Engine, CS: ConstraintSystem<E>, SPONGE: StatefulSpongeGadget<E, S, R>, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
     padding_strategy: PaddingStrategy,

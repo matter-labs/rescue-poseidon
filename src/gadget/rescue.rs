@@ -19,7 +19,7 @@ use franklin_crypto::{
 
 use std::convert::TryInto;
 
-pub fn rescue_gadget_fixed_length<E, CS, const R: usize, const S: usize>(
+pub fn rescue_gadget_fixed_length<E, CS, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<Vec<Num<E>>, SynthesisError>
@@ -27,14 +27,14 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, RescueGadget<E,R, S>, R, S>(
+    super::hash::generic_hash::<E, _, RescueGadget<E, S, R>, S, R>(
         cs,
         input,
         PaddingStrategy::FixedLength,
     )
 }
 
-pub fn rescue_gadget_var_length<E, CS, const R: usize, const S: usize>(
+pub fn rescue_gadget_var_length<E, CS, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<Vec<Num<E>>, SynthesisError>
@@ -42,34 +42,34 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, RescueGadget<E, R, S>, R, S>(
+    super::hash::generic_hash::<E, _, RescueGadget<E, S, R>, S, R>(
         cs,
         input,
         PaddingStrategy::VariableLength,
     )
 }
 
-pub fn rescue_gadget<E, CS, const R: usize, const S: usize>(cs: &mut CS, input: &[Num<E>]) -> Result<Vec<Num<E>>, SynthesisError>
+pub fn rescue_gadget<E, CS, const S: usize, const R: usize>(cs: &mut CS, input: &[Num<E>]) -> Result<Vec<Num<E>>, SynthesisError>
 where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, RescueGadget<E,R,S>,R, S>(
+    super::hash::generic_hash::<E, _, RescueGadget<E,S,R>,S, R>(
         cs,
         input,
         PaddingStrategy::Custom,
     )
 }
 
-pub struct RescueGadget<E: Engine, const R: usize, const S: usize> {
+pub struct RescueGadget<E: Engine, const S: usize, const R: usize> {
     state: [LinearCombination<E>; S],
-    params: HasherParams<E, R, S>,
+    params: HasherParams<E, S, R>,
     _alpha: E::Fr,
     alpha_inv: E::Fr,
     sponge_mode: SpongeModes,
 }
 
-impl<E: Engine, const R: usize, const S: usize> Default for RescueGadget<E, R, S> {
+impl<E: Engine, const S: usize, const R: usize> Default for RescueGadget<E, S, R> {
     fn default() -> Self {
         let (params, _alpha, alpha_inv) = crate::rescue::params::rescue_params();
         let initial_state: [LinearCombination<E>; S] = (0..S)
@@ -87,9 +87,9 @@ impl<E: Engine, const R: usize, const S: usize> Default for RescueGadget<E, R, S
     }
 }
 
-sponge_gadget_impl!(RescueGadget<E, R, S>);
+sponge_gadget_impl!(RescueGadget<E, S, R>);
 
-impl<E: Engine, const R: usize, const S: usize> GadgetSpongePermutation<E> for RescueGadget<E, R, S> {
+impl<E: Engine, const S: usize, const R: usize> GadgetSpongePermutation<E> for RescueGadget<E, S, R> {
     fn permutation<CS: ConstraintSystem<E>>(
         &mut self,
         cs: &mut CS,
@@ -123,7 +123,7 @@ impl<E: Engine, const R: usize, const S: usize> GadgetSpongePermutation<E> for R
     }
 }
 
-impl<E: Engine, const R: usize, const S: usize> RescueGadget<E, R, S> {
+impl<E: Engine, const S: usize, const R: usize> RescueGadget<E, S, R> {
     pub fn new() -> Self {
         let (params, _alpha, alpha_inv) = crate::rescue::params::rescue_params();
         let initial_state: [LinearCombination<E>; S] = (0..S)

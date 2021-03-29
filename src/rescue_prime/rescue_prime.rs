@@ -34,7 +34,7 @@ pub fn rescue_prime_hash<E: Engine, const S: usize, const R: usize>(input: &[E::
 
 #[derive(Debug, Clone)]
 pub struct RescuePrimeHasher<E: Engine, const S: usize, const R: usize> {
-    params: HasherParams<E, R, S>,
+    params: HasherParams<E, S, R>,
     state: [E::Fr; S],
     alpha: E::Fr,
     alpha_inv: E::Fr,

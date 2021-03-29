@@ -22,16 +22,17 @@ use std::convert::TryInto;
 
 use crate::common::utils::construct_mds_matrix;
 #[derive(Debug, Clone)]
-pub struct HasherParams<E: Engine, const RATE: usize, const STATE_WIDTH: usize> {
+pub struct HasherParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
     security_level: usize,
     full_rounds: usize,
     partial_rounds: usize,
     round_constants: Vec<[E::Fr; STATE_WIDTH]>,
     mds_matrix: [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
 }
+
 type H = BlakeHasher;
 
-impl<E: Engine, const RATE: usize, const STATE_WIDTH: usize> HasherParams<E, RATE, STATE_WIDTH> {
+impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HasherParams<E, STATE_WIDTH, RATE> {
     pub fn new(security_level: usize, full_rounds: usize, partial_rounds: usize) -> Self {
         assert_ne!(RATE, 0);
         assert_ne!(STATE_WIDTH, 0);

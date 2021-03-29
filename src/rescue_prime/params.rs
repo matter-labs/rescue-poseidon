@@ -142,8 +142,8 @@ fn compute_round_constants<E: Engine, const STATE_WIDTH: usize>(
     final_constants
 }
 
-pub fn rescue_prime_params<E: Engine, const RATE: usize, const STATE_WIDTH: usize>(
-) -> (HasherParams<E, RATE, STATE_WIDTH>, E::Fr, E::Fr) {
+pub fn rescue_prime_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
+) -> (HasherParams<E, STATE_WIDTH, RATE>, E::Fr, E::Fr) {
     let security_level = 80;
 
     let mut modulus_bytes = vec![];

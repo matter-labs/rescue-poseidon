@@ -35,7 +35,7 @@ pub fn rescue_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -
 
 #[derive(Debug, Clone)]
 pub struct RescueHasher<E: Engine, const S: usize, const R: usize> {
-    params: HasherParams<E, R, S>,
+    params: HasherParams<E, S, R>,
     state: [E::Fr; S],
     alpha: E::Fr,
     alpha_inv: E::Fr,
@@ -80,7 +80,6 @@ impl<E: Engine, const S: usize, const R: usize> RescueHasher<E, S, R> {
 
 // common parts of sponge
 sponge_impl!(RescueHasher<E, S, R>);
-// sponge_impl!(RescueHasher<E>, super::params::rescue_params);
 
 impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescueHasher<E, S, R> {
     fn permutation(&mut self) {

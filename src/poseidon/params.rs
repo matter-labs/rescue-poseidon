@@ -4,8 +4,8 @@ use crate::HasherParams;
 
 use crate::common::matrix::{compute_optimized_matrixes, mmul_assign, try_inverse};
 
-pub fn poseidon_params<E: Engine, const RATE: usize, const STATE_WIDTH: usize>(
-) -> (HasherParams<E, RATE, STATE_WIDTH>, E::Fr) {
+pub fn poseidon_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
+) -> (HasherParams<E,STATE_WIDTH, RATE>, E::Fr) {
     let security_level = 80;
     let full_rounds = 8;
     // let partial_rounds = 83;
@@ -24,7 +24,7 @@ pub fn poseidon_params<E: Engine, const RATE: usize, const STATE_WIDTH: usize>(
 }
 
 pub(crate) fn poseidon_light_params<E: Engine, const RATE: usize, const STATE_WIDTH: usize>() -> (
-    HasherParams<E, RATE, STATE_WIDTH>,
+    HasherParams<E, STATE_WIDTH, RATE>,
     E::Fr,
     Vec<[E::Fr; STATE_WIDTH]>,
     (

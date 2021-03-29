@@ -17,7 +17,7 @@ use franklin_crypto::{
 
 use std::convert::TryInto;
 
-pub fn rescue_prime_gadget_fixed_length<E, CS, const R: usize, const S: usize>(
+pub fn rescue_prime_gadget_fixed_length<E, CS, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<Vec<Num<E>>, SynthesisError>
@@ -25,14 +25,14 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, RescuePrimeGadget<E, R, S>, R, S>(
+    super::hash::generic_hash::<E, _, RescuePrimeGadget<E, S, R>, S, R>(
         cs,
         input,
         PaddingStrategy::FixedLength,
     )
 }
 
-pub fn rescue_prime_gadget_var_length<E, CS, const R: usize, const S: usize>(
+pub fn rescue_prime_gadget_var_length<E, CS, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<Vec<Num<E>>, SynthesisError>
@@ -40,14 +40,14 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, RescuePrimeGadget<E, R, S>, R, S>(
+    super::hash::generic_hash::<E, _, RescuePrimeGadget<E, S, R>, S, R>(
         cs,
         input,
         PaddingStrategy::VariableLength,
     )
 }
 
-pub fn rescue_prime_gadget<E, CS, const R: usize, const S: usize>(
+pub fn rescue_prime_gadget<E, CS, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<Vec<Num<E>>, SynthesisError>
@@ -55,22 +55,22 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, RescuePrimeGadget<E, R, S>, R, S>(
+    super::hash::generic_hash::<E, _, RescuePrimeGadget<E, S, R>, S, R>(
         cs,
         input,
         PaddingStrategy::Custom,
     )
 }
 
-pub struct RescuePrimeGadget<E: Engine, const R: usize, const S: usize> {
+pub struct RescuePrimeGadget<E: Engine, const S: usize, const R: usize> {
     state: [LinearCombination<E>; S],
-    params: HasherParams<E, R, S>,
+    params: HasherParams<E, S, R>,
     _alpha: E::Fr,
     alpha_inv: E::Fr,
     sponge_mode: SpongeModes,
 }
 
-impl<E: Engine, const R: usize, const S: usize> Default for RescuePrimeGadget<E, R, S> {
+impl<E: Engine, const S: usize, const R: usize> Default for RescuePrimeGadget<E, S, R> {
     fn default() -> Self {
         let (params, alpha, alpha_inv) = crate::rescue_prime::params::rescue_prime_params();
         let initial_state: [LinearCombination<E>; S] = (0..S)
@@ -88,9 +88,9 @@ impl<E: Engine, const R: usize, const S: usize> Default for RescuePrimeGadget<E,
     }
 }
 
-sponge_gadget_impl!(RescuePrimeGadget<E, R, S>);
+sponge_gadget_impl!(RescuePrimeGadget<E, S, R>);
 
-impl<E: Engine, const R: usize, const S: usize> GadgetSpongePermutation<E> for RescuePrimeGadget<E, R, S> {
+impl<E: Engine, const S: usize, const R: usize> GadgetSpongePermutation<E> for RescuePrimeGadget<E, S, R> {
     // permutation happens in 9 rounds
     // first round is sparse and other 8 full rounds are full
     // total cost 2 + 3*2 + 8*3*(2+2) = 104
@@ -129,7 +129,7 @@ impl<E: Engine, const R: usize, const S: usize> GadgetSpongePermutation<E> for R
     }
 }
 
-impl<E: Engine, const R: usize, const S: usize> RescuePrimeGadget<E, R, S> {
+impl<E: Engine, const S: usize, const R: usize> RescuePrimeGadget<E, S, R> {
     pub fn new() -> Self {
         let (params, alpha, alpha_inv) = crate::rescue_prime::params::rescue_prime_params();
         let initial_state: [LinearCombination<E>; S] = (0..S)
