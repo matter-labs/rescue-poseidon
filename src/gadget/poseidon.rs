@@ -8,7 +8,7 @@ use super::{
     },
     utils::matrix_vector_product,
 };
-use crate::{common::padding::PaddingStrategy, sponge_gadget_impl, HasherParams};
+use crate::{common::domain_strategy::DomainStrategy, sponge_gadget_impl, HasherParams};
 use franklin_crypto::{
     bellman::plonk::better_better_cs::cs::ConstraintSystem, plonk::circuit::boolean::Boolean,
 };
@@ -34,7 +34,7 @@ where
     super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
         cs,
         input,
-        PaddingStrategy::FixedLength,
+        DomainStrategy::FixedLength,
     )
 }
 
@@ -53,7 +53,7 @@ where
     super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
         cs,
         input,
-        PaddingStrategy::VariableLength,
+        DomainStrategy::VariableLength,
     )
 }
 
@@ -67,11 +67,12 @@ where
     E: Engine,
     CS: ConstraintSystem<E>,
 {
-    super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
-        cs,
-        input,
-        PaddingStrategy::Custom,
-    )
+    unimplemented!();
+    // super::hash::generic_hash::<E, _, PoseidonGadget<E, S, R>, S, R>(
+    //     cs,
+    //     input,
+    //     DomainStrategy::Custom,
+    // )
 }
 /// Stateful poseidon
 pub struct PoseidonGadget<E: Engine, const S: usize, const R: usize> {

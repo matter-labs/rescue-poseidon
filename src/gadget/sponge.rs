@@ -88,6 +88,7 @@ pub trait StatefulSpongeGadget<E: Engine, const S: usize, const R: usize>:
         Ok(())
     }
 
+    // Number of 
     fn squeeze<CS: ConstraintSystem<E>>(
         &mut self,
         cs: &mut CS,

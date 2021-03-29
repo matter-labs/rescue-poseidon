@@ -1,30 +1,63 @@
 use crate::common::{
-    hash::generic_hash_with_padding, matrix::mmul_assign, padding::PaddingStrategy, sbox::sbox,
+    domain_strategy::DomainStrategy, hash::generic_hash_with_padding, matrix::mmul_assign,
+    sbox::sbox,
 };
 use crate::sponge::{SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge};
 use crate::sponge_impl;
 use crate::HasherParams;
 use franklin_crypto::bellman::{Engine, Field};
-/// The capacity value is length x (264 ) + (o − 1) where o the output length.
-/// The padding consists of the field elements being 0.
-pub fn rescue_hash_fixed_length<E: Engine, const S: usize, const R: usize>(
-    input: &[E::Fr],
-) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E, S, R>, S, R>(input, PaddingStrategy::FixedLength)
+use std::convert::TryInto;
+
+/// This hash function receives fixed length inputs and outputs
+/// number of elements as equal to rate parameter.
+/// This function apply fixed length padding strategy.
+pub fn rescue_generic_fixed_length<
+    E: Engine,
+    const STATE_WIDTH: usize,
+    const RATE: usize,
+    const LENGTH: usize,
+>(
+    input: &[E::Fr; LENGTH],
+) -> [E::Fr; RATE] {
+    let result =
+        generic_hash_with_padding::<E, RescueHasher<E, STATE_WIDTH, RATE>, STATE_WIDTH, RATE>(
+            input,
+            DomainStrategy::CustomFixedLength,
+        );
+
+    result.try_into().expect("static vector")
 }
 
-/// The capacity value is 264 + (o − 1) where o the output length.
-/// The padding consists of one field element being 1, and the remaining elements being 0.
-pub fn rescue_var_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E, S, R>, S, R>(
-        input,
-        PaddingStrategy::VariableLength,
-    )
+/// A rescue hash funciton outputs number of elements as equal to rate parameter
+/// This function apply variable length padding strategy.
+pub fn rescue_generic_var_length<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
+    input: &[E::Fr],
+) -> [E::Fr; RATE] {
+    let result =
+        generic_hash_with_padding::<E, RescueHasher<E, STATE_WIDTH, RATE>, STATE_WIDTH, RATE>(
+            input,
+            DomainStrategy::CustomVariableLength,
+        );
+
+    result.try_into().expect("static vector")
+}
+
+/// This is hasher accepts inputs whose lenght known prior(fixed-length input). It uses custom padding 
+/// strategy  which basically sets value of capacity
+pub fn rescue_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+    
+    rescue_generic_fixed_length::<E, STATE_WIDTH, RATE, L>(input)
 }
 
 /// This is hasher with a custom strategy which basically sets value of capacity
-pub fn rescue_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, RescueHasher<E, S, R>, S, R>(input, PaddingStrategy::Custom)
+// try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
+pub fn rescue_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
+    rescue_generic_var_length::<E, STATE_WIDTH, RATE>(input)
 }
 
 #[derive(Debug, Clone)]

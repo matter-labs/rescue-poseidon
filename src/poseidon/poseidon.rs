@@ -1,36 +1,65 @@
 use crate::common::matrix::mmul_assign;
-use crate::common::padding::PaddingStrategy;
+use crate::common::domain_strategy::DomainStrategy;
 use crate::sponge_impl;
 use crate::{common::hash::generic_hash_with_padding, HasherParams};
 use crate::{
     common::sbox::sbox,
-    sponge::{SpongePermutation, SpongeState, SpongeMode, SpongeModes, StatefulSponge},
+    sponge::{SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge},
 };
 use franklin_crypto::bellman::pairing::ff::Field;
 use franklin_crypto::bellman::pairing::Engine;
-/// This hash function received fixed length inputs and outputs
+use std::convert::TryInto;
+
+/// This hash function receives fixed length inputs and outputs
 /// number of elements as equal to rate parameter.
 /// This function apply fixed length padding strategy.
-pub fn poseidon_hash_fixed_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, PoseidonHasher<E, S, R>, S, R>(
-        input,
-        PaddingStrategy::FixedLength,
-    )
+pub fn poseidon_generic_fixed_length<
+    E: Engine,
+    const STATE_WIDTH: usize,
+    const RATE: usize,
+    const LENGTH: usize,
+>(
+    input: &[E::Fr; LENGTH],
+) -> [E::Fr; RATE] {
+    let result =
+        generic_hash_with_padding::<E, PoseidonHasher<E, STATE_WIDTH, RATE>, STATE_WIDTH, RATE>(
+            input,
+            DomainStrategy::CustomFixedLength,
+        );
+
+    result.try_into().expect("static vector")
 }
 
 /// A poseidon hash funciton outputs number of elements as equal to rate parameter
-/// This function apply fixed length padding strategy.
-pub fn poseidon_var_length<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
-    generic_hash_with_padding::<E, PoseidonHasher<E, S, R>, S, R>(
-        input,
-        PaddingStrategy::VariableLength,
-    )
+/// This function apply variable length padding strategy.
+pub fn poseidon_generic_var_length<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
+    input: &[E::Fr],
+) -> [E::Fr; RATE] {
+    let result =
+        generic_hash_with_padding::<E, PoseidonHasher<E, STATE_WIDTH, RATE>, STATE_WIDTH, RATE>(
+            input,
+            DomainStrategy::CustomVariableLength,
+        );
+
+    result.try_into().expect("static vector")
+}
+
+/// This is hasher accepts inputs whose lenght known prior(fixed-length input). It uses custom padding 
+/// strategy  which basically sets value of capacity
+pub fn poseidon_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+    
+    poseidon_generic_fixed_length::<E, STATE_WIDTH, RATE, L>(input)
 }
 
 /// This is hasher with a custom strategy which basically sets value of capacity
-pub fn poseidon_hash<E: Engine, const S: usize, const R: usize>(input: &[E::Fr]) -> Vec<E::Fr> {
-    // generic_hash_with_padding::<E, PoseidonHasher<E, S, R>,S, R>(input, PaddingStrategy::Custom(input.len()))
-    generic_hash_with_padding::<E, PoseidonHasher<E, S, R>,S, R>(input, PaddingStrategy::NoPadding)
+// try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
+pub fn poseidon_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+
+    poseidon_generic_var_length::<E, STATE_WIDTH, RATE>(input)
 }
 
 #[derive(Clone, Debug)]
