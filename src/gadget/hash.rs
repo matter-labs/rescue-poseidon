@@ -9,17 +9,17 @@ use franklin_crypto::{
 pub(crate) fn generic_hash<E: Engine, CS: ConstraintSystem<E>, SPONGE: StatefulSpongeGadget<E, S, R>, const S: usize, const R: usize>(
     cs: &mut CS,
     input: &[Num<E>],
-    padding_strategy: DomainStrategy<R>,
+    domain_strategy: DomainStrategy<R>,
 ) -> Result<Vec<Num<E>>, SynthesisError> {
     let mut sponge = SPONGE::default();
 
-    let capacity_value = padding_strategy.compute_capacity::<E>(input.len()).map(|el| {
+    let capacity_value = domain_strategy.compute_capacity::<E>(input.len()).map(|el| {
         let mut lc = LinearCombination::zero();
         lc.add_assign_constant(el);
         lc
     });
 
-    let padding_values = padding_strategy
+    let padding_values = domain_strategy
         .generate_padding_values::<E>(input.len())
         .iter()
         .map(|el| Num::Constant(*el))
