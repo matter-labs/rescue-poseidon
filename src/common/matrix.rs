@@ -49,43 +49,20 @@ pub(crate) fn compute_optimized_matrixes<E: Engine, const DIM: usize, const SUBD
     (transpose::<E, DIM>(&m_prime), sparse_matrixes)
 }
 
-// Multiply sparse matrix and vector by exploiting sparsity of optimized matrixes.
-pub(crate) fn mul_by_sparse_matrix<E: Engine>(
-    vector: &[E::Fr],
-    matrix: &[Vec<E::Fr>], // transposed
-) -> Vec<E::Fr> {
-    let mut result = vec![E::Fr::zero(); vector.len()];
-
-    for (a, b) in vector.iter().zip(matrix[0].iter()) {
-        let mut tmp = a.clone();
-        tmp.mul_assign(&b);
-        result[0].add_assign(&tmp);
-    }
-
-    let mut tmp = matrix[1][0];
-    tmp.mul_assign(&vector[0]);
-    tmp.add_assign(&vector[1]);
-    result[1] = tmp;
-
-    let mut tmp = matrix[2][0];
-    tmp.mul_assign(&vector[0]);
-    tmp.add_assign(&vector[2]);
-    result[2] = tmp;
-
-    result
-}
-
 // Decontructs a sub matrix
 pub(crate) fn sub_matrix<E: Engine, const DIM: usize, const SUBDIM: usize>(
     matrix: &[[E::Fr; DIM]; DIM],
     row_range: std::ops::Range<usize>,
     col_range: std::ops::Range<usize>,
 ) -> [[E::Fr; SUBDIM]; SUBDIM] {
-    assert!((row_range.len() == SUBDIM) || (col_range.len() == SUBDIM), "row/col length should be in range");
+    assert!(
+        (row_range.len() == SUBDIM) && (col_range.len() == SUBDIM),
+        "row/col length should be in range"
+    );
     let mut sub_matrix = [[E::Fr::zero(); SUBDIM]; SUBDIM];
 
     for (row_id, row) in matrix[row_range].iter().enumerate() {
-        for (col_id, col) in row[col_range.clone()].iter().enumerate() {            
+        for (col_id, col) in row[col_range.clone()].iter().enumerate() {
             sub_matrix[row_id][col_id] = *col;
         }
     }
@@ -108,8 +85,11 @@ pub(crate) fn set_sub_matrix<E: Engine, const DIM: usize, const SUBDIM: usize>(
 }
 
 // Multiplies matrix with a vector  and assigns result into same vector.
-pub(crate) fn mmul_assign<E: Engine, const DIM: usize>(matrix: &[[E::Fr; DIM]; DIM], vector: &mut [E::Fr; DIM]) {
-    // [M]xv    
+pub(crate) fn mmul_assign<E: Engine, const DIM: usize>(
+    matrix: &[[E::Fr; DIM]; DIM],
+    vector: &mut [E::Fr; DIM],
+) {
+    // [M]xv
     let mut result = [E::Fr::zero(); DIM];
     for col in 0..DIM {
         result[col] = crate::common::utils::scalar_product::<E>(vector, &matrix[col]);
@@ -135,13 +115,10 @@ pub(crate) fn multiply<E: Engine, const DIM: usize>(
     result
 }
 // Transpose of a matrix.
-pub(crate) fn transpose<E: Engine, const S: usize>(matrix: &[[E::Fr; S]; S]) -> [[E::Fr; S]; S] {
-    let row_len = matrix.len();
-    let col_len = matrix[0].len();
-
-    let mut values = [[E::Fr::zero(); S]; S];
-    for i in 0..row_len {
-        for j in 0..col_len {
+pub(crate) fn transpose<E: Engine, const DIM: usize>(matrix: &[[E::Fr; DIM]; DIM]) -> [[E::Fr; DIM]; DIM] {
+    let mut values = [[E::Fr::zero(); DIM]; DIM];
+    for i in 0..DIM {
+        for j in 0..DIM {
             values[j][i] = matrix[i][j];
         }
     }
@@ -150,23 +127,19 @@ pub(crate) fn transpose<E: Engine, const S: usize>(matrix: &[[E::Fr; S]; S]) -> 
 }
 
 // Computes inverse of 2-d or 3-d matrixes.
-pub(crate) fn try_inverse<E: Engine, const S: usize>(
-    m: &[[E::Fr; S]; S],
-) -> Option<[[E::Fr; S]; S]> {
-    assert_eq!(m[0].len(), m.len());
-
-    let dim = m.len();
-
-    match dim {
-        2 => try_inverse_dim_2::<E, S>(m),
-        3 => try_inverse_dim_3::<E, S>(m),
-        _ => unimplemented!(),
+pub(crate) fn try_inverse<E: Engine, const DIM: usize>(
+    m: &[[E::Fr; DIM]; DIM],
+) -> Option<[[E::Fr; DIM]; DIM]> {
+    match DIM {
+        2 => try_inverse_dim_2::<E, DIM>(m),
+        3 => try_inverse_dim_3::<E, DIM>(m),
+        _ => unimplemented!("unsupported matrix dimension"),
     }
 }
 
 // Computes inverse of 2x2 matrix.
-fn try_inverse_dim_2<E: Engine, const S: usize>(m: &[[E::Fr; S]; S]) -> Option<[[E::Fr; S]; S]> {
-    assert_eq!(S, 2);
+fn try_inverse_dim_2<E: Engine, const DIM: usize>(m: &[[E::Fr; DIM]; DIM]) -> Option<[[E::Fr; DIM]; DIM]> {
+    assert_eq!(DIM, 2);
     let determinant = {
         let mut a = m[0][0];
         a.mul_assign(&m[1][1]);
@@ -179,7 +152,7 @@ fn try_inverse_dim_2<E: Engine, const S: usize>(m: &[[E::Fr; S]; S]) -> Option<[
         a
     };
 
-    let mut result = [[E::Fr::zero(); S]; S];
+    let mut result = [[E::Fr::zero(); DIM]; DIM];
     let det_inv = if let Some(inv) = determinant.inverse() {
         inv
     } else {
@@ -217,8 +190,8 @@ fn try_inverse_dim_2<E: Engine, const S: usize>(m: &[[E::Fr; S]; S]) -> Option<[
 }
 
 // Computes inverse of 3x3 matrix.
-fn try_inverse_dim_3<E: Engine, const S: usize>(m: &[[E::Fr; S]; S]) -> Option<[[E::Fr; S]; S]> {
-    assert_eq!(S, 3);
+fn try_inverse_dim_3<E: Engine, const DIM: usize>(m: &[[E::Fr; DIM]; DIM]) -> Option<[[E::Fr; DIM]; DIM]> {
+    assert_eq!(DIM, 3);
     // m22 * m33 - m32 * m23;
     let minor_m12_m23 = {
         let mut a = m[1][1];
@@ -279,7 +252,7 @@ fn try_inverse_dim_3<E: Engine, const S: usize>(m: &[[E::Fr; S]; S]) -> Option<[
         return None;
     }
 
-    let mut result = [[E::Fr::zero(); S]; S];
+    let mut result = [[E::Fr::zero(); DIM]; DIM];
     let det_inv = if let Some(inv) = determinant.inverse() {
         inv
     } else {
@@ -398,10 +371,10 @@ fn try_inverse_dim_3<E: Engine, const S: usize>(m: &[[E::Fr; S]; S]) -> Option<[
 }
 
 // Computes identity of given dimension.
-fn identity<E: Engine, const S: usize>() -> [[E::Fr; S]; S] {
-    let mut identity = [[E::Fr::zero(); S]; S];
-    for i in 0..S {
-        for j in 0..S {
+fn identity<E: Engine, const DIM: usize>() -> [[E::Fr; DIM]; DIM] {
+    let mut identity = [[E::Fr::zero(); DIM]; DIM];
+    for i in 0..DIM {
+        for j in 0..DIM {
             let el = if i == j { E::Fr::one() } else { E::Fr::zero() };
             identity[i][j] = el;
         }
@@ -513,7 +486,6 @@ mod test {
 
         let (_, _) = compute_optimized_matrixes::<Bn256, DIM, SUBDIM>(5, &original_mds);
     }
-
 
     fn int_to_fe<E: Engine>(elements: &[i8]) -> Vec<E::Fr> {
         elements
