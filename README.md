@@ -2,7 +2,7 @@
 ## Overview
 This repo contains implementations of arithmetization oriented hash functions(Rescue, Poseidon, Rescue Prime) that constructed by a sponge construction over prime field for both out-of circuits and in-circuit usages. Each algebraic hash function uses same sponge construction with different round function or permutation function. Gadgets are optimal in the constraint systems while also supporting different scalar fields which supported by bellman. 
 
-## Example
+## Examples
 These are examples for Rescue but all of them are same for Poseidon and Rescue Prime as well.
 
 ### Fixed Length
@@ -29,7 +29,7 @@ These are examples for Rescue but all of them are same for Poseidon and Rescue P
 
     let input = [Num; 2]; // init fixed-length array
 
-    let out = rescue_gadget(&input);    
+    let out = rescue_gadget(cs, &input);    
 ```
 
 ### Gadget (Variable Length)
@@ -38,7 +38,7 @@ These are examples for Rescue but all of them are same for Poseidon and Rescue P
 
     let input = [..]; // init some input values, input should be multiple of rate=2
 
-    let out = rescue_gadget_var_length(&input);    
+    let out = rescue_gadget_var_length(cs, &input);    
 ```
 
 
