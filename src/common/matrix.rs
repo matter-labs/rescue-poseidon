@@ -55,8 +55,14 @@ pub(crate) fn sub_matrix<E: Engine, const DIM: usize, const SUBDIM: usize>(
     row_range: std::ops::Range<usize>,
     col_range: std::ops::Range<usize>,
 ) -> [[E::Fr; SUBDIM]; SUBDIM] {
+    // we need following decompositions for optimized matrixes
+    //          row     col
+    // M' => 1..DIM   1..DIM
+    // w  => 1..DIM   0..1
+    // v  => 0..1     1..DIM
     assert!(
-        (row_range.len() == SUBDIM) && (col_range.len() == SUBDIM),
+        (row_range.len() == SUBDIM || row_range.len() == 1)
+            && (col_range.len() == SUBDIM || col_range.len() == 1),
         "row/col length should be in range"
     );
     let mut sub_matrix = [[E::Fr::zero(); SUBDIM]; SUBDIM];
@@ -115,7 +121,9 @@ pub(crate) fn multiply<E: Engine, const DIM: usize>(
     result
 }
 // Transpose of a matrix.
-pub(crate) fn transpose<E: Engine, const DIM: usize>(matrix: &[[E::Fr; DIM]; DIM]) -> [[E::Fr; DIM]; DIM] {
+pub(crate) fn transpose<E: Engine, const DIM: usize>(
+    matrix: &[[E::Fr; DIM]; DIM],
+) -> [[E::Fr; DIM]; DIM] {
     let mut values = [[E::Fr::zero(); DIM]; DIM];
     for i in 0..DIM {
         for j in 0..DIM {
@@ -138,7 +146,9 @@ pub(crate) fn try_inverse<E: Engine, const DIM: usize>(
 }
 
 // Computes inverse of 2x2 matrix.
-fn try_inverse_dim_2<E: Engine, const DIM: usize>(m: &[[E::Fr; DIM]; DIM]) -> Option<[[E::Fr; DIM]; DIM]> {
+fn try_inverse_dim_2<E: Engine, const DIM: usize>(
+    m: &[[E::Fr; DIM]; DIM],
+) -> Option<[[E::Fr; DIM]; DIM]> {
     assert_eq!(DIM, 2);
     let determinant = {
         let mut a = m[0][0];
@@ -190,7 +200,9 @@ fn try_inverse_dim_2<E: Engine, const DIM: usize>(m: &[[E::Fr; DIM]; DIM]) -> Op
 }
 
 // Computes inverse of 3x3 matrix.
-fn try_inverse_dim_3<E: Engine, const DIM: usize>(m: &[[E::Fr; DIM]; DIM]) -> Option<[[E::Fr; DIM]; DIM]> {
+fn try_inverse_dim_3<E: Engine, const DIM: usize>(
+    m: &[[E::Fr; DIM]; DIM],
+) -> Option<[[E::Fr; DIM]; DIM]> {
     assert_eq!(DIM, 3);
     // m22 * m33 - m32 * m23;
     let minor_m12_m23 = {
