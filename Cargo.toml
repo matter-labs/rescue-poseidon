@@ -2,7 +2,7 @@
 name = "rescue_poseidon"
 description = "Sponge construction based Algebraic Hash Functions"
 keywords = ["poseidon", "rescue", "rescue prime", "sponge", "duplex sponge", "algebraic hash function", "arithmetization oriented hash function"]
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Sait Imamoglu <si@matterlabs.dev>"]
 edition = "2018"
 
