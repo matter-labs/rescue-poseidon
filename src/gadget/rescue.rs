@@ -1,12 +1,17 @@
 use super::sbox::*;
 use super::{
     sponge::{
-        GadgetSpongeMode, GadgetSpongePermutation, GadgetSpongeState,
-        SpongeModes, StatefulSpongeGadget,
+        GadgetSpongeMode, GadgetSpongePermutation, GadgetSpongeState, SpongeModes,
+        StatefulSpongeGadget,
     },
     utils::matrix_vector_product,
 };
-use crate::{common::domain_strategy::DomainStrategy, sponge_gadget_impl, common::params::HasherParams};
+use crate::{
+    common::domain_strategy::DomainStrategy,
+    common::params::HasherParams,
+    rescue::{HashParams, RescueParams},
+    sponge_gadget_impl,
+};
 use franklin_crypto::{
     bellman::plonk::better_better_cs::cs::ConstraintSystem, plonk::circuit::boolean::Boolean,
 };
@@ -67,15 +72,12 @@ where
 
 pub struct RescueGadget<E: Engine, const S: usize, const R: usize> {
     state: [LinearCombination<E>; S],
-    params: HasherParams<E, S, R>,
-    _alpha: E::Fr,
-    alpha_inv: E::Fr,
+    params: RescueParams<E, S, R>,
     sponge_mode: SpongeModes,
 }
 
 impl<E: Engine, const S: usize, const R: usize> Default for RescueGadget<E, S, R> {
     fn default() -> Self {
-        let (params, _alpha, alpha_inv) = crate::rescue::params::rescue_params();
         let initial_state: [LinearCombination<E>; S] = (0..S)
             .map(|_| LinearCombination::zero())
             .collect::<Vec<LinearCombination<E>>>()
@@ -83,9 +85,7 @@ impl<E: Engine, const S: usize, const R: usize> Default for RescueGadget<E, S, R
             .expect("vector of lc");
         Self {
             state: initial_state,
-            params,
-            _alpha,
-            alpha_inv: alpha_inv.expect("inverse of alpha"),
+            params: RescueParams::default(),
             sponge_mode: SpongeModes::Standard(false),
         }
     }
@@ -93,56 +93,54 @@ impl<E: Engine, const S: usize, const R: usize> Default for RescueGadget<E, S, R
 
 sponge_gadget_impl!(RescueGadget<E, S, R>);
 
-impl<E: Engine, const S: usize, const R: usize> GadgetSpongePermutation<E> for RescueGadget<E, S, R> {
+impl<E: Engine, const S: usize, const R: usize> GadgetSpongePermutation<E>
+    for RescueGadget<E, S, R>
+{
     fn permutation<CS: ConstraintSystem<E>>(
         &mut self,
         cs: &mut CS,
         _should_permute: &Boolean,
     ) -> Result<(), SynthesisError> {
-        self.state
-            .iter_mut()
-            .zip(self.params.constants_of_round(0).iter())
-            .for_each(|(s, c)| s.add_assign_constant(*c));
-
-        for round in 0..2 * self.params.full_rounds {
-            // apply sbox
-            if round & 1 == 0 {
-                sbox_quintic_inv::<E, _>(cs, self.alpha_inv, &mut self.state)?;
-            } else {
-                sbox_quintic(cs, &mut self.state)?;
-            }
-            // mds row
-            self.state = matrix_vector_product(cs, &self.params.mds_matrix(), &self.state)?;
-
-            // round constants
-            for (s, c) in self
-                .state
-                .iter_mut()
-                .zip(self.params.constants_of_round(round + 1).iter().cloned())
-            {
-                s.add_assign_constant(c);
-            }
-        }
-        Ok(())
+        rescue_circuit_round_function(cs, &self.params, &mut self.state)
     }
 }
 
-impl<E: Engine, const S: usize, const R: usize> RescueGadget<E, S, R> {
-    pub fn new() -> Self {
-        let (params, _alpha, alpha_inv) = crate::rescue::params::rescue_params();
-        let initial_state: [LinearCombination<E>; S] = (0..S)
-            .map(|_| LinearCombination::zero())
-            .collect::<Vec<LinearCombination<E>>>()
-            .try_into()
-            .expect("vector of lc");
-        Self {
-            state: initial_state,
-            params,
-            _alpha,
-            alpha_inv: alpha_inv.expect("inverse of alpha"),
-            sponge_mode: SpongeModes::Standard(false),
+pub fn rescue_circuit_round_function<
+    E: Engine,
+    CS: ConstraintSystem<E>,
+    P: HashParams<E, STATE_WIDTH, RATE>,
+    const STATE_WIDTH: usize,
+    const RATE: usize,
+>(
+    cs: &mut CS,
+    params: &P,
+    state: &mut [LinearCombination<E>; STATE_WIDTH],
+) -> Result<(), SynthesisError> {
+    state
+        .iter_mut()
+        .zip(params.constants_of_round(0).iter())
+        .for_each(|(s, c)| s.add_assign_constant(*c));
+
+    for round in 0..2 * params.number_of_full_rounds() {
+        // apply sbox
+        if round & 1 == 0 {
+            sbox_quintic_inv::<E, _>(cs, params.alpha_inv(), state)?;
+        } else {
+            sbox_quintic(cs, state)?;
+        }
+        // mds row
+        // TODO remove mut from mds
+        *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
+
+        // round constants
+        for (s, c) in state
+            .iter_mut()
+            .zip(params.constants_of_round(round + 1).iter().cloned())
+        {
+            s.add_assign_constant(c);
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -173,7 +171,7 @@ mod test {
             *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
         }
 
-        let mut gadget = RescueGadget::<_, STATE_WIDTH, RATE>::new();
+        let mut gadget = RescueGadget::<_, STATE_WIDTH, RATE>::default();
         gadget.absorb(cs, &inputs_as_num).unwrap();
         let gadget_output = gadget.squeeze(cs, None).unwrap();
 

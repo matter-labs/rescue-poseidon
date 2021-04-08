@@ -2,7 +2,7 @@ use franklin_crypto::bellman::{Engine, PrimeField};
 
 use crate::common::params::HasherParams;
 
-pub fn rescue_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>() -> (HasherParams<E, STATE_WIDTH, RATE>, E::Fr, Option<E::Fr>) {
+pub fn rescue_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>() -> (HasherParams<E, STATE_WIDTH, RATE>, E::Fr, E::Fr) {
     let full_rounds = 22;
     let security_level = 126;
 
@@ -20,7 +20,7 @@ pub fn rescue_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>() -
 
     let alpha_u64 = 5u64;
     let alpha = E::Fr::from_str(&alpha_u64.to_string()).unwrap();
-    let alpha_inv = crate::common::utils::compute_gcd::<E>(alpha_u64);
+    let alpha_inv = crate::common::utils::compute_gcd::<E>(alpha_u64).expect("inverse of alpha");
 
     (params, alpha, alpha_inv)
 }

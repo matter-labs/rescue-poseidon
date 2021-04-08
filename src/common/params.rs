@@ -18,6 +18,7 @@ pub struct HasherParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> 
     pub mds_matrix: [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
 }
 
+
 type H = BlakeHasher;
 
 impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HasherParams<E, STATE_WIDTH, RATE> {

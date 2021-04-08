@@ -1,10 +1,10 @@
+use crate::common::params::HasherParams;
 use crate::common::{
     domain_strategy::DomainStrategy, hash::generic_hash_with_padding, matrix::mmul_assign,
     sbox::sbox,
 };
 use crate::sponge::{SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge};
 use crate::sponge_impl;
-use crate::common::params::HasherParams;
 use franklin_crypto::bellman::{Engine, Field};
 use std::convert::TryInto;
 
@@ -15,7 +15,7 @@ use std::convert::TryInto;
 pub fn rescue_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
-    
+
     rescue_generic_fixed_length::<E, STATE_WIDTH, RATE, L>(input)
 }
 
@@ -59,38 +59,107 @@ pub(crate) fn rescue_generic_var_length<E: Engine, const STATE_WIDTH: usize, con
     result.try_into().expect("fixed length array")
 }
 
-
-#[derive(Debug, Clone)]
-pub struct RescueHasher<E: Engine, const S: usize, const R: usize> {
-    params: HasherParams<E, S, R>,
-    state: [E::Fr; S],
-    alpha: E::Fr,
-    alpha_inv: E::Fr,
-    sponge_mode: SpongeModes,
+pub trait HashParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
+    fn constants_of_round(&self, round: usize) -> [E::Fr; STATE_WIDTH];
+    fn mds_matrix(&self) -> [[E::Fr; STATE_WIDTH]; STATE_WIDTH];
+    fn number_of_full_rounds(&self) -> usize;
+    fn number_of_partial_rounds(&self) -> usize;
+    fn alpha(&self) -> E::Fr;
+    fn alpha_inv(&self) -> E::Fr;
+}
+#[derive(Clone, Debug)]
+pub struct RescueParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
+    pub full_rounds: usize,
+    pub round_constants: Vec<[E::Fr; STATE_WIDTH]>,
+    pub mds_matrix: [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
+    pub alpha: E::Fr,
+    pub alpha_inv: E::Fr,
 }
 
-impl<E: Engine, const S: usize, const R: usize> Default for RescueHasher<E, S, R> {
+impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> Default
+    for RescueParams<E, STATE_WIDTH, RATE>
+{
     fn default() -> Self {
-        let (params, alpha, alpha_inv) = super::params::rescue_params();
+        let (params, alpha, alpha_inv) = super::params::rescue_params::<E, STATE_WIDTH, RATE>();
         Self {
-            state: [E::Fr::zero(); S],
-            params,
+            full_rounds: params.full_rounds,
+            round_constants: params
+                .round_constants()
+                .try_into()
+                .expect("round constants"),
+            mds_matrix: *params.mds_matrix(),
             alpha,
-            alpha_inv: alpha_inv.expect("inverse of alpha"),
-            sponge_mode: SpongeModes::Standard(false),
+            alpha_inv,
         }
     }
 }
 
-impl<E: Engine, const S: usize, const R: usize> RescueHasher<E, S, R> {
-    pub fn new_duplex() -> Self {
-        let (params, alpha, alpha_inv) = super::params::rescue_params();
+impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HashParams<E, STATE_WIDTH, RATE>
+    for RescueParams<E, STATE_WIDTH, RATE>
+{
+    fn constants_of_round(&self, round: usize) -> [E::Fr; STATE_WIDTH] {
+        self.round_constants[round]
+    }
+
+    fn mds_matrix(&self) -> [[E::Fr; STATE_WIDTH]; STATE_WIDTH] {
+        self.mds_matrix
+    }
+
+    fn number_of_full_rounds(&self) -> usize {
+        self.full_rounds
+    }
+
+    fn number_of_partial_rounds(&self) -> usize {
+        unimplemented!("Rescue doesn't have partial rounds.")
+    }
+
+    fn alpha(&self) -> E::Fr {
+        self.alpha
+    }
+
+    fn alpha_inv(&self) -> E::Fr {
+        self.alpha_inv
+    }
+}
+
+impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> RescueParams<E, STATE_WIDTH, RATE> {
+    pub fn get_hasher() -> RescueHasher<E, STATE_WIDTH, RATE> {
+        RescueHasher::new_from_params(RescueParams::default())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RescueHasher<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
+    params: RescueParams<E, STATE_WIDTH, RATE>,
+    state: [E::Fr; STATE_WIDTH],
+    sponge_mode: SpongeModes,
+}
+
+impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> Default
+    for RescueHasher<E, STATE_WIDTH, RATE>
+{
+    fn default() -> Self {
         Self {
-            state: [E::Fr::zero(); S],
-            alpha,
-            alpha_inv: alpha_inv.expect("inverse of alpha"),
-            params,
+            state: [E::Fr::zero(); STATE_WIDTH],
+            sponge_mode: SpongeModes::Standard(false),
+            params: RescueParams::default(),
+        }
+    }
+}
+
+impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> RescueHasher<E, STATE_WIDTH, RATE> {
+    pub fn new_from_params(params: RescueParams<E, STATE_WIDTH, RATE>) -> Self {
+        Self {
+            state: [E::Fr::zero(); STATE_WIDTH],
             sponge_mode: SpongeModes::Duplex(false),
+            params,
+        }
+    }
+    pub fn new_duplex() -> Self {
+        Self {
+            state: [E::Fr::zero(); STATE_WIDTH],
+            sponge_mode: SpongeModes::Duplex(false),
+            params: RescueParams::default(),
         }
     }
 }
@@ -100,28 +169,40 @@ sponge_impl!(RescueHasher<E, S, R>);
 
 impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescueHasher<E, S, R> {
     fn permutation(&mut self) {
-        // round constants for first step
-        self.state
-            .iter_mut()
-            .zip(self.params.constants_of_round(0).iter())
-            .for_each(|(s, c)| s.add_assign(c));
+        rescue_round_function(&self.params, &mut self.state)
+    }
+}
 
-        for round in 0..2 * self.params.full_rounds {
-            // sbox
-            if round & 1 == 0 {
-                sbox::<E>(self.alpha_inv, &mut self.state);
-            } else {
-                sbox::<E>(self.alpha, &mut self.state);
-            }
+pub fn rescue_round_function<
+    E: Engine,
+    P: HashParams<E, STATE_WIDTH, RATE>,
+    const STATE_WIDTH: usize,
+    const RATE: usize,
+>(
+    params: &P,
+    state: &mut [E::Fr; STATE_WIDTH],
+) {
+    // round constants for first step
+    state
+        .iter_mut()
+        .zip(params.constants_of_round(0).iter())
+        .for_each(|(s, c)| s.add_assign(c));
 
-            // mds
-            mmul_assign::<E, S>(&self.params.mds_matrix, &mut self.state);
-
-            // round constants
-            self.state
-                .iter_mut()
-                .zip(self.params.constants_of_round(round + 1).iter())
-                .for_each(|(s, c)| s.add_assign(c));
+    for round in 0..2 * params.number_of_full_rounds() {
+        // sbox
+        if round & 1 == 0 {
+            sbox::<E>(params.alpha_inv(), state);
+        } else {
+            sbox::<E>(params.alpha(), state);
         }
+
+        // mds
+        mmul_assign::<E, STATE_WIDTH>(&params.mds_matrix(), state);
+
+        // round constants
+        state
+            .iter_mut()
+            .zip(params.constants_of_round(round + 1).iter())
+            .for_each(|(s, c)| s.add_assign(c));
     }
 }
