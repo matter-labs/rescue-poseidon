@@ -13,7 +13,7 @@ mod tests;
 
 pub use gadget::{
     poseidon::{poseidon_gadget, poseidon_gadget_var_length},
-    rescue::{rescue_gadget, rescue_gadget_var_length},
+    rescue::{rescue_gadget, rescue_gadget_var_length, rescue_circuit_round_function},
 };
 pub use poseidon::{poseidon_hash, poseidon_hash_var_length};
-pub use rescue::{rescue_hash, rescue_hash_var_length};
+pub use rescue::{rescue_hash, rescue_hash_var_length, rescue_round_function, RescueParams};
