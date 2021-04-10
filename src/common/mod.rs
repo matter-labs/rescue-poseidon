@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-pub(crate) mod hash;
 pub(crate) mod sbox;
 pub(crate) mod utils;
 pub(crate) mod matrix;

@@ -13,8 +13,8 @@ use franklin_crypto::{
 
 // Substitution box is non-linear part of permutation function.
 // It basically computes 5th power of each element in the state.
-// Poseidon uses partial sbox which basically computes power of 
-// single element of state. If constraint system has support of 
+// Poseidon uses partial sbox which basically computes power of
+// single element of state. If constraint system has support of
 // custom gate then computation costs only single gate.
 pub(crate) fn sbox_quintic<E: Engine, CS: ConstraintSystem<E>>(
     cs: &mut CS,
@@ -51,8 +51,8 @@ pub(crate) fn sbox_quintic<E: Engine, CS: ConstraintSystem<E>>(
         }
     }
 }
-// This function computes power of inverse of alpha to each element of state. 
-// By custom gate support, it costs only single gate. Under the hood, it proves 
+// This function computes power of inverse of alpha to each element of state.
+// By custom gate support, it costs only single gate. Under the hood, it proves
 // that 5th power of each element of state is equal to itself.(x^(1/5)^5==x)
 pub(crate) fn sbox_quintic_inv<E: Engine, CS: ConstraintSystem<E>>(
     cs: &mut CS,
@@ -86,7 +86,7 @@ pub(crate) fn sbox_quintic_inv<E: Engine, CS: ConstraintSystem<E>>(
 mod test {
     use franklin_crypto::{
         bellman::bn256::{Bn256, Fr},
-        bellman::{Engine, PrimeField},
+        bellman::PrimeField,
         plonk::circuit::{allocated_num::AllocatedNum, linear_combination::LinearCombination},
     };
     use rand::Rand;
@@ -111,11 +111,11 @@ mod test {
         // cs.finalize();
         // assert!(cs.is_satisfied());
 
-        println!(
-            "quintic sbox takes {} gates with custom gate for {} iteration ",
-            cs.n(),
-            n
-        );
+        // println!(
+        //     "quintic sbox takes {} gates with custom gate for {} iteration ",
+        //     cs.n(),
+        //     n
+        // );
     }
     #[test]
     fn test_sbox_alpha_without_custom_gate() {
@@ -130,7 +130,7 @@ mod test {
         let b_lc = LinearCombination::from(b_num);
         let mut a_lc = LinearCombination::from(a_num);
         a_lc.add_assign(&b_lc);
-        let alpha = Fr::from_str("5").unwrap();
+        let _alpha = Fr::from_str("5").unwrap();
 
         let n = 2;
         for _ in 0..n {
@@ -139,11 +139,11 @@ mod test {
         // cs.finalize();
         // assert!(cs.is_satisfied());
 
-        println!(
-            "quintic sbox takes {} gates without custom gate for {} iteration ",
-            cs.n(),
-            n
-        );
+        // println!(
+        //     "quintic sbox takes {} gates without custom gate for {} iteration ",
+        //     cs.n(),
+        //     n
+        // );
     }
     #[test]
     fn test_sbox_alpha_inv_without_custom_gate() {
@@ -153,13 +153,13 @@ mod test {
         let a = Fr::rand(rng);
         let a_num = AllocatedNum::alloc(cs, || Ok(a)).unwrap();
         let a_lc = LinearCombination::from(a_num);
-        let alpha = Fr::from_str("5").unwrap();
+        let _alpha = Fr::from_str("5").unwrap();
         let alpha_inv = crate::common::utils::compute_gcd::<Bn256>(5u64);
         let _ = sbox_quintic_inv(cs, alpha_inv.expect("inverse of alpha"), &mut [a_lc]).unwrap();
 
         // cs.finalize();
         // assert!(cs.is_satisfied());
 
-        println!("power sbox takes {} gates without custom gate", cs.n());
+        // println!("power sbox takes {} gates without custom gate", cs.n());
     }
 }

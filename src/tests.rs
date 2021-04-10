@@ -1,8 +1,9 @@
-use crate::poseidon::PoseidonHasher;
-use crate::rescue::RescueHasher;
-use crate::sponge::StatefulSponge;
-use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
-use franklin_crypto::bellman::Field;
+use crate::poseidon::PoseidonParams;
+use crate::rescue::RescueParams;
+use crate::sponge::GenericSponge;
+use crate::traits::Sponge;
+use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr, FrRepr};
+use franklin_crypto::bellman::{Field, PrimeField};
 use franklin_crypto::rescue::{bn256::Bn256RescueParams, RescueHashParams, StatefulRescue};
 use franklin_crypto::{
     bellman::plonk::better_better_cs::cs::{TrivialAssembly, Width4MainGateWithDNext},
@@ -24,17 +25,15 @@ pub(crate) fn init_cs<E: Engine>(
 
 #[test]
 fn test_rescue_bn256_fixed_length() {
-    const STATE_WIDTH: usize = 3;
-    const RATE: usize = 2;
+    const INPUT_LENGTH: usize = 2;
     let rng = &mut init_rng();
-    let input = (0..2).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
+    let input = (0..INPUT_LENGTH).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
 
     let old_params = Bn256RescueParams::new_checked_2_into_1();
     let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
 
-    let actual = crate::rescue::rescue_generic_fixed_length::<Bn256, STATE_WIDTH, RATE, RATE>(
-        &input.try_into().expect("static vector"),
-    );
+    let actual =
+        crate::rescue::rescue_hash::<Bn256, INPUT_LENGTH>(&input.try_into().expect("static vector"));
     assert_eq!(expected[0], actual[0]);
 }
 
@@ -48,7 +47,8 @@ fn test_poseidon_bn256_fixed_length() {
     let old_params = Bn256PoseidonParams::new_checked_2_into_1();
     let expected = poseidon_hash::poseidon_hash::<Bn256>(&old_params, &input);
 
-    let actual = crate::poseidon::poseidon_generic_var_length::<Bn256, STATE_WIDTH, RATE>(&input);
+    let actual =
+        crate::poseidon::generic_poseidon_hash_var_length::<Bn256, STATE_WIDTH, RATE>(&input);
     assert_eq!(expected[0], actual[0]);
 }
 
@@ -115,13 +115,16 @@ fn test_poseidon_comparisons_with_original_one() {
     let original_params = Bn256PoseidonParams::new_checked_2_into_1();
     let mut original_poseidon = PoseidonSponge::<Bn256>::new(&original_params);
     original_poseidon.absorb(&input);
-    let expected = original_poseidon.squeeze_out_single();
+    let mut expected = [Fr::zero(); 2];
+    expected[0] = original_poseidon.squeeze_out_single();
+    expected[1] = original_poseidon.squeeze_out_single();
 
-    let mut hasher = PoseidonHasher::<Bn256, STATE_WIDTH, RATE>::default();
+    let new_params = PoseidonParams::<Bn256, STATE_WIDTH, RATE>::default();
+    let mut hasher = GenericSponge::from(&new_params);
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
 
-    assert_eq!(actual[0], expected);
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -136,57 +139,12 @@ fn test_rescue_comparisons_with_original_one() {
     let original_params = Bn256RescueParams::new_checked_2_into_1();
     let mut original_rescue = StatefulRescue::<Bn256>::new(&original_params);
     original_rescue.absorb(&input);
-    let expected = original_rescue.squeeze_out_single();
-
-    let mut hasher = RescueHasher::<Bn256, STATE_WIDTH, RATE>::default();
-    hasher.absorb(&input);
-    let actual = hasher.squeeze(None);
-
-    assert_eq!(actual[0], expected);
-}
-
-#[test]
-fn test_poseidon_duplex() {
-    const STATE_WIDTH: usize = 3;
-    const RATE: usize = 2;
-    use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
-    let mut el = Fr::one();
-    el.double();
-
-    let input = vec![el; 2];
-
-    let original_params = Bn256PoseidonParams::new_checked_2_into_1();
-    let mut original_poseidon = PoseidonSponge::<Bn256>::new(&original_params);    
-    original_poseidon.absorb(&input);
     let mut expected = [Fr::zero(); 2];
-    expected[0] = original_poseidon.squeeze_out_single();
-    expected[1] = original_poseidon.squeeze_out_single();
-
-    let mut hasher = PoseidonHasher::<Bn256, STATE_WIDTH, RATE>::new_duplex();
-    hasher.absorb(&input);
-    let actual = hasher.squeeze(None);
-
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn test_rescue_duplex() {
-    const STATE_WIDTH: usize = 3;
-    const RATE: usize = 2;
-    use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
-    let mut el = Fr::one();
-    el.double();
-
-    let input = vec![el; 2];
-
-    let original_params = Bn256RescueParams::new_checked_2_into_1();
-    let mut original_rescue = StatefulRescue::<Bn256>::new(&original_params);    
-    original_rescue.absorb(&input);    
-    let mut expected = vec![Fr::zero(); 2];
     expected[0] = original_rescue.squeeze_out_single();
     expected[1] = original_rescue.squeeze_out_single();
 
-    let mut hasher = RescueHasher::<Bn256, STATE_WIDTH, RATE>::new_duplex();
+    let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
+    let mut hasher = GenericSponge::from(&new_params);
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
 
@@ -198,7 +156,8 @@ fn test_rescue_duplex() {
 fn test_sponge_phase_absorb() {
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
-    let mut sponge = RescueHasher::<Bn256, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::default();
+    let mut sponge = GenericSponge::<Bn256, _, STATE_WIDTH, RATE>::from(&params);
 
     sponge.absorb(&[Fr::one(); 2]);
     sponge.absorb(&[Fr::one(); 2]);
@@ -209,7 +168,56 @@ fn test_sponge_phase_absorb() {
 fn test_sponge_phase_squeeze() {
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
-    let mut sponge = RescueHasher::<Bn256, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::default();
+    let mut sponge = GenericSponge::<Bn256, _, STATE_WIDTH, RATE>::from(&params);
 
     sponge.squeeze(None);
+}
+
+#[test]
+fn test_generic_rescue_bn256_fixed_length() {
+    use crate::rescue::RescueParams;
+    use crate::sponge::GenericSponge;
+    use crate::traits::Sponge;
+
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+    let rng = &mut init_rng();
+    let input = (0..2).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
+
+    let old_params = Bn256RescueParams::new_checked_2_into_1();
+    let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
+
+    let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
+    let mut rescue_hasher = GenericSponge::from(&new_params);
+    rescue_hasher.specialize(Some(Fr::from_repr(FrRepr::from(2u64)).expect("")));
+    rescue_hasher.absorb(&input);
+    let actual = rescue_hasher.squeeze(None);
+
+    assert_eq!(expected[0], actual[0]);
+}
+
+#[test]
+#[should_panic]
+fn test_generic_rescue_bn256_var_length() {
+    use crate::rescue::RescueParams;
+    use crate::sponge::GenericSponge;
+    use crate::traits::Sponge;
+
+    const STATE_WIDTH: usize = 3;
+    const RATE: usize = 2;
+    let rng = &mut init_rng();
+    // input is not multiple of RATE so it should panic
+    let input = (0..RATE + 1).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
+
+    let old_params = Bn256RescueParams::new_checked_2_into_1();
+    let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
+
+    let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
+    let mut rescue_hasher = GenericSponge::from(&new_params);
+    rescue_hasher.specialize(Some(Fr::from_repr(FrRepr::from(2u64)).expect("")));
+    rescue_hasher.absorb(&input);
+    let actual = rescue_hasher.squeeze(None);
+
+    assert_eq!(expected[0], actual[0]);
 }

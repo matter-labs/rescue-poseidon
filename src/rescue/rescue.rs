@@ -1,36 +1,34 @@
-use crate::common::params::HasherParams;
-use crate::common::{
-    domain_strategy::DomainStrategy, hash::generic_hash_with_padding, matrix::mmul_assign,
-    sbox::sbox,
-};
-use crate::sponge::{SpongeMode, SpongeModes, SpongePermutation, SpongeState, StatefulSponge};
-use crate::sponge_impl;
+use crate::common::{matrix::mmul_assign, sbox::sbox};
+use crate::hash::{generic_hash, generic_hash_var_length};
+use crate::traits::{HashFamily, HashParams};
 use franklin_crypto::bellman::{Engine, Field};
 use std::convert::TryInto;
 
 /// Receives inputs whose length `known` prior(fixed-length).
 /// Also uses custom domain strategy which basically sets value of capacity element to
 /// length of input and applies a padding rule which makes input size equals to multiple of
-/// rate parameter. Uses state-width=3 and rate=2.
+/// rate parameter.
+/// Uses pre-defined state-width=3 and rate=2.
 pub fn rescue_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
-
-    rescue_generic_fixed_length::<E, STATE_WIDTH, RATE, L>(input)
+    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    generic_hash(&params, input)
 }
 
 /// Receives inputs whose length `unknown` prior (variable-length).
 /// Also uses custom domain strategy which does not touch to value of capacity element
-/// and does not apply any padding rule. Uses state-width=3 and rate=2.
+/// and does not apply any padding rule. 
+/// Uses pre-defined state-width=3 and rate=2.
 pub fn rescue_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
     // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
-
-    rescue_generic_var_length::<E, STATE_WIDTH, RATE>(input)
+    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    generic_hash_var_length(&params, input)
 }
 
-pub(crate) fn rescue_generic_fixed_length<
+pub fn generic_rescue_hash<
     E: Engine,
     const STATE_WIDTH: usize,
     const RATE: usize,
@@ -38,34 +36,15 @@ pub(crate) fn rescue_generic_fixed_length<
 >(
     input: &[E::Fr; LENGTH],
 ) -> [E::Fr; RATE] {
-    let result =
-        generic_hash_with_padding::<E, RescueHasher<E, STATE_WIDTH, RATE>, STATE_WIDTH, RATE>(
-            input,
-            DomainStrategy::CustomFixedLength,
-        );
-
-    result.try_into().expect("fixed length array")
+    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    generic_hash(&params, input)
 }
 
-pub(crate) fn rescue_generic_var_length<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
+pub fn generic_rescue_var_length<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
     input: &[E::Fr],
 ) -> [E::Fr; RATE] {
-    let result =
-        generic_hash_with_padding::<E, RescueHasher<E, STATE_WIDTH, RATE>, STATE_WIDTH, RATE>(
-            input,
-            DomainStrategy::CustomVariableLength,
-        );
-
-    result.try_into().expect("fixed length array")
-}
-
-pub trait HashParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
-    fn constants_of_round(&self, round: usize) -> [E::Fr; STATE_WIDTH];
-    fn mds_matrix(&self) -> [[E::Fr; STATE_WIDTH]; STATE_WIDTH];
-    fn number_of_full_rounds(&self) -> usize;
-    fn number_of_partial_rounds(&self) -> usize;
-    fn alpha(&self) -> E::Fr;
-    fn alpha_inv(&self) -> E::Fr;
+    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    generic_hash_var_length(&params, input)
 }
 #[derive(Clone, Debug)]
 pub struct RescueParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
@@ -97,6 +76,10 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> Default
 impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HashParams<E, STATE_WIDTH, RATE>
     for RescueParams<E, STATE_WIDTH, RATE>
 {
+    fn hash_family(&self) -> HashFamily {
+        HashFamily::Rescue
+    }
+
     fn constants_of_round(&self, round: usize) -> [E::Fr; STATE_WIDTH] {
         self.round_constants[round]
     }
@@ -120,60 +103,17 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HashParams<E, STATE
     fn alpha_inv(&self) -> E::Fr {
         self.alpha_inv
     }
-}
 
-impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> RescueParams<E, STATE_WIDTH, RATE> {
-    pub fn get_hasher() -> RescueHasher<E, STATE_WIDTH, RATE> {
-        RescueHasher::new_from_params(RescueParams::default())
+    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; STATE_WIDTH]; STATE_WIDTH], &[[[E::Fr; STATE_WIDTH];STATE_WIDTH]]) {
+        unimplemented!("Rescue doesn't use optimized matrixes")
+    }
+
+    fn optimized_round_constants(&self) -> &[[E::Fr; STATE_WIDTH]] {
+        unimplemented!("Rescue doesn't use optimized round constants")
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct RescueHasher<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
-    params: RescueParams<E, STATE_WIDTH, RATE>,
-    state: [E::Fr; STATE_WIDTH],
-    sponge_mode: SpongeModes,
-}
-
-impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> Default
-    for RescueHasher<E, STATE_WIDTH, RATE>
-{
-    fn default() -> Self {
-        Self {
-            state: [E::Fr::zero(); STATE_WIDTH],
-            sponge_mode: SpongeModes::Standard(false),
-            params: RescueParams::default(),
-        }
-    }
-}
-
-impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> RescueHasher<E, STATE_WIDTH, RATE> {
-    pub fn new_from_params(params: RescueParams<E, STATE_WIDTH, RATE>) -> Self {
-        Self {
-            state: [E::Fr::zero(); STATE_WIDTH],
-            sponge_mode: SpongeModes::Duplex(false),
-            params,
-        }
-    }
-    pub fn new_duplex() -> Self {
-        Self {
-            state: [E::Fr::zero(); STATE_WIDTH],
-            sponge_mode: SpongeModes::Duplex(false),
-            params: RescueParams::default(),
-        }
-    }
-}
-
-// common parts of sponge
-sponge_impl!(RescueHasher<E, S, R>);
-
-impl<E: Engine, const S: usize, const R: usize> SpongePermutation<E> for RescueHasher<E, S, R> {
-    fn permutation(&mut self) {
-        rescue_round_function(&self.params, &mut self.state)
-    }
-}
-
-pub fn rescue_round_function<
+pub(crate) fn rescue_round_function<
     E: Engine,
     P: HashParams<E, STATE_WIDTH, RATE>,
     const STATE_WIDTH: usize,
@@ -182,6 +122,7 @@ pub fn rescue_round_function<
     params: &P,
     state: &mut [E::Fr; STATE_WIDTH],
 ) {
+    assert_eq!(params.hash_family(), HashFamily::Rescue, "Incorrect hash family!");
     // round constants for first step
     state
         .iter_mut()

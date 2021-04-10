@@ -487,8 +487,6 @@ mod test {
 
     #[test]
     fn test_optimized_matrixes() {
-        use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
-
         let rng = &mut init_rng();
 
         const DIM: usize = 3;

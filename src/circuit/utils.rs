@@ -32,8 +32,7 @@ pub(crate) fn matrix_vector_product<E: Engine, CS: ConstraintSystem<E>, const DI
 }
 
 // Multiply sparse matrix and vector by exploiting sparsity of optimized matrixes.
-pub(crate) fn mul_by_sparse_matrix<E: Engine, CS: ConstraintSystem<E>, const DIM: usize>(
-    _cs: &mut CS,
+pub(crate) fn mul_by_sparse_matrix<E: Engine, const DIM: usize>(
     vector: &[LinearCombination<E>; DIM],
     matrix: &[[E::Fr; DIM]; DIM],
 ) -> [LinearCombination<E>; DIM] {
@@ -103,7 +102,7 @@ mod test {
         matrix[2][2] = Fr::one();
 
         crate::common::matrix::mmul_assign::<Bn256, DIM>(&matrix, &mut vector_fe);
-        let actual = super::mul_by_sparse_matrix(cs, &vector_lc, &matrix);
+        let actual = super::mul_by_sparse_matrix(&vector_lc, &matrix);
 
         vector_fe.iter().zip(actual.iter()).for_each(|(fe, lc)| {
             let actual = lc.clone().into_num(cs).unwrap().get_value().unwrap();

@@ -1,19 +1,14 @@
-#![feature(test)]
-extern crate test;
-mod benches;
+#[allow(dead_code)]
 mod common;
-mod gadget;
-mod poseidon;
-mod rescue;
-mod rescue_prime;
+mod circuit;
+pub mod poseidon;
+pub mod rescue;
+pub mod rescue_prime;
 mod sponge;
-mod transcript;
+mod traits;
+mod hash;
 #[cfg(test)]
 mod tests;
 
-pub use gadget::{
-    poseidon::{poseidon_gadget, poseidon_gadget_var_length},
-    rescue::{rescue_gadget, rescue_gadget_var_length, rescue_circuit_round_function},
-};
-pub use poseidon::{poseidon_hash, poseidon_hash_var_length};
-pub use rescue::{rescue_hash, rescue_hash_var_length, rescue_round_function, RescueParams};
+pub use sponge::{GenericSponge, generic_round_function};
+pub use traits::Sponge;

@@ -62,8 +62,9 @@ impl<const RATE: usize> DomainStrategy<RATE> {
     }
     /// Computes values for padding.
     pub(crate) fn generate_padding_values<E: Engine>(&self, input_len: usize) -> Vec<E::Fr> {
+        assert!(input_len != 0, "empty input");
         let mut values_for_padding = vec![];
-        match &self {
+        match self {
             Self::FixedLength => {
                 values_for_padding.resize(RATE - input_len, E::Fr::zero());
 
@@ -78,17 +79,22 @@ impl<const RATE: usize> DomainStrategy<RATE> {
             }
 
             Self::CustomFixedLength => {
-                if RATE - input_len > 0 {
-                    values_for_padding.push(E::Fr::one());
-                }
-                while values_for_padding.len() % RATE != 0 {
-                    values_for_padding.push(E::Fr::zero());
+                let mut cycle = input_len / RATE;
+
+                if input_len % RATE != 0 {
+                    cycle += 1;
                 }
 
+                let padding_len = cycle * RATE - input_len;
+
+                for _ in 0..padding_len{
+                    values_for_padding.push(E::Fr::zero());
+                }
+                
                 values_for_padding
             }
             Self::CustomVariableLength => {
-                // padding should be happen in caller side.
+                assert!(input_len % RATE == 0, "input should be padded for variable length hashing");
                 vec![]
             }
             _ => unimplemented!("unknown domain strategy"),
