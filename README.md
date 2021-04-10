@@ -2,48 +2,34 @@
 ## Overview
 This repo contains implementations of arithmetization oriented hash functions(Rescue, Poseidon, Rescue Prime) that constructed by a sponge construction over prime field for both out-of circuits and in-circuit usages. Each algebraic hash function uses same sponge construction with different round function or permutation function. Gadgets are optimal in the constraint systems while also supporting different scalar fields which supported by bellman. 
 
-## Examples
-These are examples for Rescue but all of them are same for Poseidon and Rescue Prime as well.
-
-### Fixed Length
-```rust
-    use rescue_poseidon::rescue_hash;
-
-    let input = [Fr; 2]; // init fixed-length array
-
-    let out = rescue_hash(&input);
+## Usage
+Add dependency
+```toml
+rescue_poseidon = 0.4
 ```
 
-### Variable Length
 ```rust
-    use rescue_poseidon::rescue_hash_var_length;
+use franklin_crypto::bellman::bn256::Fr;
+use rescue_poseidon::rescue::rescue_hash;
 
-    let input = [..]; // init some input values, input should be multiple of rate=2
+const INPUT_LENGTH: usize = 2;
+let rng = &mut init_rng();
+let input = (0..INPUT_LENGTH).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
 
-    let out = rescue_hash_var_length(&input);    
+let result = rescue_hash::<Bn256, INPUT_LENGTH>(&input.try_into().expect("constant array"));
+assert_eq!(result.len(), 2);
 ```
+More examples can be found in `examples` folder.
 
-### Gadget (Fixed Length)
-```rust
-    use rescue_poseidon::rescue_gadget;
 
-    let input = [Num; 2]; // init fixed-length array
-
-    let out = rescue_gadget(cs, &input);    
-```
-
-### Gadget (Variable Length)
-```rust
-    use rescue_poseidon::rescue_gadget_var_length;
-
-    let input = [..]; // init some input values, input should be multiple of rate=2
-
-    let out = rescue_gadget_var_length(cs, &input);    
-```
-
+## Testing
+`cargo test -- --nocapture`
 
 ## Benchmarks & Constraint System Costs
-`CPU: 3,1 GHz Intel Core i5`
+`cargo bench -- --nocapture`
+
+
+_CPU: 3,1 GHz Intel Core i5_
 
 | hashes    | 1x permutation runtime (μs) | 1x permutation gates | number of rounds |
 | --- | -------- | -------- | -------- |
