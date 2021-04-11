@@ -10,9 +10,9 @@ use std::convert::TryInto;
 /// rate parameter.
 /// Uses pre-defined state-width=3 and rate=2.
 pub fn rescue_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
-    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::<E, RATE, WIDTH>::default();
     generic_hash(&params, input)
 }
 
@@ -22,44 +22,44 @@ pub fn rescue_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] 
 /// Uses pre-defined state-width=3 and rate=2.
 pub fn rescue_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
     // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
-    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::<E, RATE, WIDTH>::default();
     generic_hash_var_length(&params, input)
 }
 
 pub fn generic_rescue_hash<
     E: Engine,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
     const LENGTH: usize,
 >(
     input: &[E::Fr; LENGTH],
 ) -> [E::Fr; RATE] {
-    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::<E, RATE, WIDTH>::default();
     generic_hash(&params, input)
 }
 
-pub fn generic_rescue_var_length<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
+pub fn generic_rescue_var_length<E: Engine, const RATE: usize, const WIDTH: usize>(
     input: &[E::Fr],
 ) -> [E::Fr; RATE] {
-    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::<E, RATE, WIDTH>::default();
     generic_hash_var_length(&params, input)
 }
 #[derive(Clone, Debug)]
-pub struct RescueParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
+pub struct RescueParams<E: Engine, const RATE: usize, const WIDTH: usize> {
     pub full_rounds: usize,
-    pub round_constants: Vec<[E::Fr; STATE_WIDTH]>,
-    pub mds_matrix: [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
+    pub round_constants: Vec<[E::Fr; WIDTH]>,
+    pub mds_matrix: [[E::Fr; WIDTH]; WIDTH],
     pub alpha: E::Fr,
     pub alpha_inv: E::Fr,
 }
 
-impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> Default
-    for RescueParams<E, STATE_WIDTH, RATE>
+impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
+    for RescueParams<E, RATE, WIDTH>
 {
     fn default() -> Self {
-        let (params, alpha, alpha_inv) = super::params::rescue_params::<E, STATE_WIDTH, RATE>();
+        let (params, alpha, alpha_inv) = super::params::rescue_params::<E, RATE, WIDTH>();
         Self {
             full_rounds: params.full_rounds,
             round_constants: params
@@ -73,18 +73,18 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> Default
     }
 }
 
-impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HashParams<E, STATE_WIDTH, RATE>
-    for RescueParams<E, STATE_WIDTH, RATE>
+impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH>
+    for RescueParams<E, RATE, WIDTH>
 {
     fn hash_family(&self) -> HashFamily {
         HashFamily::Rescue
     }
 
-    fn constants_of_round(&self, round: usize) -> [E::Fr; STATE_WIDTH] {
+    fn constants_of_round(&self, round: usize) -> [E::Fr; WIDTH] {
         self.round_constants[round]
     }
 
-    fn mds_matrix(&self) -> [[E::Fr; STATE_WIDTH]; STATE_WIDTH] {
+    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH] {
         self.mds_matrix
     }
 
@@ -104,23 +104,23 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HashParams<E, STATE
         self.alpha_inv
     }
 
-    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; STATE_WIDTH]; STATE_WIDTH], &[[[E::Fr; STATE_WIDTH];STATE_WIDTH]]) {
+    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH];WIDTH]]) {
         unimplemented!("Rescue doesn't use optimized matrixes")
     }
 
-    fn optimized_round_constants(&self) -> &[[E::Fr; STATE_WIDTH]] {
+    fn optimized_round_constants(&self) -> &[[E::Fr; WIDTH]] {
         unimplemented!("Rescue doesn't use optimized round constants")
     }
 }
 
 pub(crate) fn rescue_round_function<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     params: &P,
-    state: &mut [E::Fr; STATE_WIDTH],
+    state: &mut [E::Fr; WIDTH],
 ) {
     assert_eq!(params.hash_family(), HashFamily::Rescue, "Incorrect hash family!");
     // round constants for first step
@@ -138,7 +138,7 @@ pub(crate) fn rescue_round_function<
         }
 
         // mds
-        mmul_assign::<E, STATE_WIDTH>(&params.mds_matrix(), state);
+        mmul_assign::<E, WIDTH>(&params.mds_matrix(), state);
 
         // round constants
         state

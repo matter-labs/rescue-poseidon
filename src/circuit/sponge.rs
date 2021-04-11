@@ -12,25 +12,25 @@ use franklin_crypto::{
 pub struct GenericSpongeGadget<
     'a,
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 > {
     params: &'a P,
-    state: [LinearCombination<E>; STATE_WIDTH],
+    state: [LinearCombination<E>; WIDTH],
     mode: SpongeModes,
 }
 
 impl<
         'a,
         E: Engine,
-        P: HashParams<E, STATE_WIDTH, RATE>,
-        const STATE_WIDTH: usize,
+        P: HashParams<E, RATE, WIDTH>,
+        const WIDTH: usize,
         const RATE: usize,
-    > From<&'a P> for GenericSpongeGadget<'a, E, P, STATE_WIDTH, RATE>
+    > From<&'a P> for GenericSpongeGadget<'a, E, P, RATE, WIDTH>
 {
     fn from(params: &'a P) -> Self {
-        let state = (0..STATE_WIDTH)
+        let state = (0..WIDTH)
             .map(|_| LinearCombination::zero())
             .collect::<Vec<LinearCombination<E>>>()
             .try_into()
@@ -46,10 +46,10 @@ impl<
 impl<
         'a,
         E: Engine,
-        P: HashParams<E, STATE_WIDTH, RATE>,
-        const STATE_WIDTH: usize,
+        P: HashParams<E, RATE, WIDTH>,
+        const WIDTH: usize,
         const RATE: usize,
-    > SpongeGadget<E, STATE_WIDTH, RATE> for GenericSpongeGadget<'a, E, P, STATE_WIDTH, RATE>
+    > SpongeGadget<E, RATE, WIDTH> for GenericSpongeGadget<'a, E, P, RATE, WIDTH>
 {
     fn specialize(
         &mut self,
@@ -173,13 +173,13 @@ impl<
 pub fn generic_round_function_gadget<
     E: Engine,
     CS: ConstraintSystem<E>,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     cs: &mut CS,
     params: &P,
-    state: &mut [LinearCombination<E>; STATE_WIDTH],
+    state: &mut [LinearCombination<E>; WIDTH],
 ) -> Result<(), SynthesisError> {
     match params.hash_family() {
         HashFamily::Rescue => super::rescue::gadget_rescue_round_function(cs, params, state),

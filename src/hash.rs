@@ -5,9 +5,9 @@ use std::convert::TryInto;
 
 pub fn generic_hash<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
     const LENGTH: usize,
 >(
     params: &P,
@@ -18,9 +18,9 @@ pub fn generic_hash<
 
 pub fn generic_hash_var_length<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     params: &P,
     input: &[E::Fr],
@@ -30,9 +30,9 @@ pub fn generic_hash_var_length<
 
 fn inner_generic_hash<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     params: &P,
     input: &[E::Fr],

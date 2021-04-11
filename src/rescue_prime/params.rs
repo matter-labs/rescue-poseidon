@@ -78,14 +78,14 @@ fn compute_alpha(p: &[u8]) -> (BigUint, BigUint) {
     )
 }
 
-fn compute_round_constants<E: Engine, const STATE_WIDTH: usize>(
+fn compute_round_constants<E: Engine, const WIDTH: usize>(
     modulus_bytes: &[u8],
     p_big: BigInt,
     m: usize,
     capacity: usize,
     security_level: usize,
     n: usize,
-) -> Vec<[E::Fr; STATE_WIDTH]> {
+) -> Vec<[E::Fr; WIDTH]> {
     fn shake256(input: &[u8], num_bytes: usize) -> Box<[u8]> {
         use sha3::digest::ExtendableOutput;
         use sha3::digest::Update;
@@ -132,18 +132,18 @@ fn compute_round_constants<E: Engine, const STATE_WIDTH: usize>(
         let constant_fe = E::Fr::from_repr(repr).unwrap();
         round_constants.push(constant_fe);
     }
-    let mut final_constants = vec![[E::Fr::zero(); STATE_WIDTH]; n];
+    let mut final_constants = vec![[E::Fr::zero(); WIDTH]; n];
 
     round_constants
-        .chunks_exact(STATE_WIDTH)
+        .chunks_exact(WIDTH)
         .zip(final_constants.iter_mut())
         .for_each(|(src, dst)| *dst = src.try_into().expect("constants in const"));
 
     final_constants
 }
 
-pub fn rescue_prime_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>(
-) -> (HasherParams<E, STATE_WIDTH, RATE>, E::Fr, E::Fr) {
+pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
+) -> (HasherParams<E, RATE, WIDTH>, E::Fr, E::Fr) {
     let security_level = 80;
 
     let mut modulus_bytes = vec![];
@@ -152,14 +152,14 @@ pub fn rescue_prime_params<E: Engine, const STATE_WIDTH: usize, const RATE: usiz
     let p_big = BigInt::from_bytes_le(Sign::Plus, &modulus_bytes);
     let (alpha, alpha_inv) = compute_alpha(&modulus_bytes);
     let alpha = alpha.to_u32_digits()[0] as usize;
-    let number_of_rounds = get_number_of_rounds(STATE_WIDTH, RATE, security_level, alpha);
+    let number_of_rounds = get_number_of_rounds(RATE, WIDTH, security_level, alpha);
 
     let mut params = HasherParams::new(security_level, number_of_rounds, 0);
-    params.round_constants = compute_round_constants::<E, STATE_WIDTH>(
+    params.round_constants = compute_round_constants::<E, WIDTH>(
         &modulus_bytes,
         p_big,
-        STATE_WIDTH,
-        STATE_WIDTH - RATE, // TODO: remove them
+        WIDTH,
+        WIDTH - RATE, // TODO: remove them
         security_level,
         number_of_rounds,
     );

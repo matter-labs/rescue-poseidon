@@ -8,10 +8,10 @@ use franklin_crypto::bellman::{Engine, Field};
 /// length of input and applies a padding rule which makes input size equals to multiple of
 /// rate parameter. Uses state-width=3 and rate=2.
 pub fn poseidon_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
 
-    let params = PoseidonParams::<E, STATE_WIDTH, RATE>::default();
+    let params = PoseidonParams::<E, RATE, WIDTH>::default();
     generic_hash(&params, input)
 }
 
@@ -20,58 +20,58 @@ pub fn poseidon_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2
 /// and does not apply any padding rule. Uses state-width=3 and rate=2.
 pub fn poseidon_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
     // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
 
-    let params = PoseidonParams::<E, STATE_WIDTH, RATE>::default();
+    let params = PoseidonParams::<E, RATE, WIDTH>::default();
     generic_hash_var_length(&params, input)
 }
 
 pub fn generic_poseidon_hash<
     E: Engine,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
     const LENGTH: usize,
 >(
     input: &[E::Fr; LENGTH],
 ) -> [E::Fr; RATE] {
-    let params = PoseidonParams::<E, STATE_WIDTH, RATE>::default();
+    let params = PoseidonParams::<E, RATE, WIDTH>::default();
     generic_hash(&params, input)
 }
 
 pub fn generic_poseidon_hash_var_length<
     E: Engine,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     input: &[E::Fr],
 ) -> [E::Fr; RATE] {
-    let params = PoseidonParams::<E, STATE_WIDTH, RATE>::default();
+    let params = PoseidonParams::<E, RATE, WIDTH>::default();
     generic_hash_var_length(&params, input)
 }
 
 #[derive(Clone, Debug)]
-pub struct PoseidonParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
-    state: [E::Fr; STATE_WIDTH],
-    mds_matrix: [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
-    optimized_round_constants: Vec<[E::Fr; STATE_WIDTH]>,
+pub struct PoseidonParams<E: Engine, const RATE: usize, const WIDTH: usize> {
+    state: [E::Fr; WIDTH],
+    mds_matrix: [[E::Fr; WIDTH]; WIDTH],
+    optimized_round_constants: Vec<[E::Fr; WIDTH]>,
     optimized_mds_matrixes: (
-        [[E::Fr; STATE_WIDTH]; STATE_WIDTH],
-        Vec<[[E::Fr; STATE_WIDTH]; STATE_WIDTH]>,
+        [[E::Fr; WIDTH]; WIDTH],
+        Vec<[[E::Fr; WIDTH]; WIDTH]>,
     ),
     alpha: E::Fr,
     full_rounds: usize,
     partial_rounds: usize,
 }
 
-impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> Default
-    for PoseidonParams<E, STATE_WIDTH, RATE>
+impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
+    for PoseidonParams<E, RATE, WIDTH>
 {
     fn default() -> Self {
         let (params, alpha, optimized_round_constants, optimized_mds_matrixes) =
-            super::params::poseidon_light_params::<E, STATE_WIDTH, RATE>();
+            super::params::poseidon_light_params::<E, RATE, WIDTH>();
         Self {
-            state: [E::Fr::zero(); STATE_WIDTH],
+            state: [E::Fr::zero(); WIDTH],
             mds_matrix: params.mds_matrix,
             alpha,
             optimized_round_constants,
@@ -82,18 +82,18 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> Default
     }
 }
 
-impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HashParams<E, STATE_WIDTH, RATE>
-    for PoseidonParams<E, STATE_WIDTH, RATE>
+impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH>
+    for PoseidonParams<E, RATE, WIDTH>
 {
     fn hash_family(&self) -> HashFamily {
         HashFamily::Poseidon
     }
 
-    fn constants_of_round(&self, _round: usize) -> [E::Fr; STATE_WIDTH] {
+    fn constants_of_round(&self, _round: usize) -> [E::Fr; WIDTH] {
         unimplemented!("Poseidon uses optimized constants")
     }
 
-    fn mds_matrix(&self) -> [[E::Fr; STATE_WIDTH]; STATE_WIDTH] {
+    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH] {
         self.mds_matrix
     }
 
@@ -113,15 +113,15 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HashParams<E, STATE
         unimplemented!("Poseidon doesn't have inverse direction")
     }
 
-    fn optimized_round_constants(&self) -> &[[E::Fr; STATE_WIDTH]] {
+    fn optimized_round_constants(&self) -> &[[E::Fr; WIDTH]] {
         &self.optimized_round_constants
     }
 
     fn optimized_mds_matrixes(
         &self,
     ) -> (
-        &[[E::Fr; STATE_WIDTH]; STATE_WIDTH],
-        &[[[E::Fr; STATE_WIDTH]; STATE_WIDTH]],
+        &[[E::Fr; WIDTH]; WIDTH],
+        &[[[E::Fr; WIDTH]; WIDTH]],
     ) {
         (
             &self.optimized_mds_matrixes.0,
@@ -132,18 +132,18 @@ impl<E: Engine, const STATE_WIDTH: usize, const RATE: usize> HashParams<E, STATE
 
 pub(crate) fn poseidon_round_function<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     params: &P,
-    state: &mut [E::Fr; STATE_WIDTH],
+    state: &mut [E::Fr; WIDTH],
 ) {
     assert_eq!(params.hash_family(), HashFamily::Poseidon, "Incorrect hash family!");
     debug_assert!(params.number_of_full_rounds() & 1 == 0);
     let half_of_full_rounds = params.number_of_full_rounds() / 2;
 
-    let mut mds_result = [E::Fr::zero(); STATE_WIDTH];
+    let mut mds_result = [E::Fr::zero(); WIDTH];
 
     let optimized_round_constants = params.optimized_round_constants();
     let sparse_matrixes = params.optimized_mds_matrixes();
@@ -156,7 +156,7 @@ pub(crate) fn poseidon_round_function<
         // apply sbox
         sbox::<E>(params.alpha(), state);
         // mul state by mds
-        mmul_assign::<E, STATE_WIDTH>(&params.mds_matrix(), state);
+        mmul_assign::<E, WIDTH>(&params.mds_matrix(), state);
     }
 
     // partial rounds
@@ -168,13 +168,13 @@ pub(crate) fn poseidon_round_function<
         .iter_mut()
         .zip(optimized_round_constants[half_of_full_rounds].iter())
         .for_each(|(s, c)| s.add_assign(c));
-    mmul_assign::<E, STATE_WIDTH>(&sparse_matrixes.0, state);
+    mmul_assign::<E, WIDTH>(&sparse_matrixes.0, state);
 
     // this is an unrolled version of partial rounds
     for (round_constants, sparse_matrix) in optimized_round_constants
         [half_of_full_rounds + 1..half_of_full_rounds + params.number_of_partial_rounds()]
         .iter()
-        .chain(&[[E::Fr::zero(); STATE_WIDTH]])
+        .chain(&[[E::Fr::zero(); WIDTH]])
         .zip(sparse_matrixes.1.iter())
     {
         let mut quad = state[0];
@@ -216,6 +216,6 @@ pub(crate) fn poseidon_round_function<
         sbox::<E>(params.alpha(), state);
 
         // mul state by mds
-        mmul_assign::<E, STATE_WIDTH>(&params.mds_matrix(), state);
+        mmul_assign::<E, WIDTH>(&params.mds_matrix(), state);
     }
 }

@@ -3,7 +3,7 @@ use franklin_crypto::{
     plonk::circuit::{allocated_num::Num, linear_combination::LinearCombination},
 };
 
-pub trait SpongeGadget<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
+pub trait SpongeGadget<E: Engine, const RATE: usize, const WIDTH: usize> {
     fn specialize(
         &mut self,
         capacity_value: Option<LinearCombination<E>>,

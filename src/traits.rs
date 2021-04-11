@@ -7,19 +7,19 @@ pub enum HashFamily {
     RescuePrime,
 }
 
-pub trait HashParams<E: Engine, const STATE_WIDTH: usize, const RATE: usize>: Sized {
+pub trait HashParams<E: Engine, const RATE: usize, const WIDTH: usize>: Sized {
     fn hash_family(&self) -> HashFamily;
-    fn constants_of_round(&self, round: usize) -> [E::Fr; STATE_WIDTH];
-    fn mds_matrix(&self) -> [[E::Fr; STATE_WIDTH]; STATE_WIDTH];
+    fn constants_of_round(&self, round: usize) -> [E::Fr; WIDTH];
+    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH];
     fn number_of_full_rounds(&self) -> usize;
     fn number_of_partial_rounds(&self) -> usize;
     fn alpha(&self) -> E::Fr;
     fn alpha_inv(&self) -> E::Fr;
-    fn optimized_round_constants(&self) -> &[[E::Fr; STATE_WIDTH]];
-    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; STATE_WIDTH]; STATE_WIDTH], &[[[E::Fr; STATE_WIDTH];STATE_WIDTH]]);
+    fn optimized_round_constants(&self) -> &[[E::Fr; WIDTH]];
+    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH];WIDTH]]);
 }
 
-pub trait Sponge<E: Engine, const STATE_WIDTH: usize, const RATE: usize> {
+pub trait Sponge<E: Engine, const RATE: usize, const WIDTH: usize> {
     fn specialize(&mut self, capacity_value: Option<E::Fr>);
 
     fn absorb(&mut self, input: &[E::Fr]);

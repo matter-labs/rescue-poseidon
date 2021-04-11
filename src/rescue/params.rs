@@ -2,7 +2,7 @@ use franklin_crypto::bellman::{Engine, PrimeField};
 
 use crate::common::params::HasherParams;
 
-pub fn rescue_params<E: Engine, const STATE_WIDTH: usize, const RATE: usize>() -> (HasherParams<E, STATE_WIDTH, RATE>, E::Fr, E::Fr) {
+pub fn rescue_params<E: Engine, const RATE: usize, const WIDTH: usize>() -> (HasherParams<E, RATE, WIDTH>, E::Fr, E::Fr) {
     let full_rounds = 22;
     let security_level = 126;
 

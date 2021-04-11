@@ -39,7 +39,7 @@ fn test_rescue_bn256_fixed_length() {
 
 #[test]
 fn test_poseidon_bn256_fixed_length() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let rng = &mut init_rng();
     let input = (0..2).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
@@ -48,18 +48,18 @@ fn test_poseidon_bn256_fixed_length() {
     let expected = poseidon_hash::poseidon_hash::<Bn256>(&old_params, &input);
 
     let actual =
-        crate::poseidon::generic_poseidon_hash_var_length::<Bn256, STATE_WIDTH, RATE>(&input);
+        crate::poseidon::generic_poseidon_hash_var_length::<Bn256, RATE, WIDTH>(&input);
     assert_eq!(expected[0], actual[0]);
 }
 
 #[test]
 fn test_rescue_params() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
 
     let old_params = Bn256RescueParams::new_checked_2_into_1();
 
-    let (new_params, _, _) = crate::rescue::params::rescue_params::<Bn256, STATE_WIDTH, RATE>();
+    let (new_params, _, _) = crate::rescue::params::rescue_params::<Bn256, RATE, WIDTH>();
 
     let number_of_rounds = new_params.full_rounds;
 
@@ -70,7 +70,7 @@ fn test_rescue_params() {
         )
     }
 
-    for row in 0..STATE_WIDTH {
+    for row in 0..WIDTH {
         assert_eq!(
             old_params.mds_matrix_row(row as u32),
             new_params.mds_matrix[row]
@@ -80,11 +80,11 @@ fn test_rescue_params() {
 
 #[test]
 fn test_poseidon_params() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
 
     let old_params = Bn256PoseidonParams::new_checked_2_into_1();
-    let (new_params, _) = crate::poseidon::params::poseidon_params::<Bn256, STATE_WIDTH, RATE>();
+    let (new_params, _) = crate::poseidon::params::poseidon_params::<Bn256, RATE, WIDTH>();
 
     let number_of_rounds = new_params.full_rounds;
 
@@ -95,7 +95,7 @@ fn test_poseidon_params() {
         )
     }
 
-    for row in 0..STATE_WIDTH {
+    for row in 0..WIDTH {
         assert_eq!(
             old_params.mds_matrix_row(row as u32),
             new_params.mds_matrix[row]
@@ -105,7 +105,7 @@ fn test_poseidon_params() {
 
 #[test]
 fn test_poseidon_comparisons_with_original_one() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let mut el = Fr::one();
     el.double();
@@ -119,7 +119,7 @@ fn test_poseidon_comparisons_with_original_one() {
     expected[0] = original_poseidon.squeeze_out_single();
     expected[1] = original_poseidon.squeeze_out_single();
 
-    let new_params = PoseidonParams::<Bn256, STATE_WIDTH, RATE>::default();
+    let new_params = PoseidonParams::<Bn256, RATE, WIDTH>::default();
     let mut hasher = GenericSponge::from_params(&new_params);
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
@@ -129,7 +129,7 @@ fn test_poseidon_comparisons_with_original_one() {
 
 #[test]
 fn test_rescue_comparisons_with_original_one() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let mut el = Fr::one();
     el.double();
@@ -143,7 +143,7 @@ fn test_rescue_comparisons_with_original_one() {
     expected[0] = original_rescue.squeeze_out_single();
     expected[1] = original_rescue.squeeze_out_single();
 
-    let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
+    let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
     let mut hasher = GenericSponge::from_params(&new_params);
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
@@ -154,10 +154,10 @@ fn test_rescue_comparisons_with_original_one() {
 #[test]
 #[should_panic]
 fn test_sponge_phase_absorb() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = RescueParams::default();
-    let mut sponge = GenericSponge::<Bn256, _, STATE_WIDTH, RATE>::from_params(&params);
+    let mut sponge = GenericSponge::<Bn256, _, RATE, WIDTH>::from_params(&params);
 
     sponge.absorb(&[Fr::one(); 2]);
     sponge.absorb(&[Fr::one(); 2]);
@@ -166,10 +166,10 @@ fn test_sponge_phase_absorb() {
 #[test]
 #[should_panic]
 fn test_sponge_phase_squeeze() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = RescueParams::default();
-    let mut sponge = GenericSponge::<Bn256, _, STATE_WIDTH, RATE>::from_params(&params);
+    let mut sponge = GenericSponge::<Bn256, _, RATE, WIDTH>::from_params(&params);
 
     sponge.squeeze(None);
 }
@@ -180,7 +180,7 @@ fn test_generic_rescue_bn256_fixed_length() {
     use crate::sponge::GenericSponge;
     use crate::traits::Sponge;
 
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let rng = &mut init_rng();
     let input = (0..2).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
@@ -188,7 +188,7 @@ fn test_generic_rescue_bn256_fixed_length() {
     let old_params = Bn256RescueParams::new_checked_2_into_1();
     let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
 
-    let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
+    let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
     let mut rescue_hasher = GenericSponge::from_params(&new_params);
     rescue_hasher.specialize(Some(Fr::from_repr(FrRepr::from(2u64)).expect("")));
     rescue_hasher.absorb(&input);
@@ -204,7 +204,7 @@ fn test_generic_rescue_bn256_var_length() {
     use crate::sponge::GenericSponge;
     use crate::traits::Sponge;
 
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let rng = &mut init_rng();
     // input is not multiple of RATE so it should panic
@@ -213,7 +213,7 @@ fn test_generic_rescue_bn256_var_length() {
     let old_params = Bn256RescueParams::new_checked_2_into_1();
     let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
 
-    let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
+    let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
     let mut rescue_hasher = GenericSponge::from_params(&new_params);
     rescue_hasher.specialize(Some(Fr::from_repr(FrRepr::from(2u64)).expect("")));
     rescue_hasher.absorb(&input);

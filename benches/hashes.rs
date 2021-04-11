@@ -42,7 +42,7 @@ fn test_state_inputs() -> [Fr; 3] {
 }
 
 fn bench_poseidon_round_function_comparison(crit: &mut Criterion) {
-    let params = PoseidonParams::<Bn256, 3, 2>::default();
+    let params = PoseidonParams::<Bn256, 2, 3>::default();
     let mut group = crit.benchmark_group("Poseidon Comparison");
 
     group.bench_function("New Poseidon Round Function", |b| {
@@ -59,7 +59,7 @@ fn bench_poseidon_round_function_comparison(crit: &mut Criterion) {
     });
 }
 fn bench_rescue_round_function_comparison(crit: &mut Criterion) {
-    let params = RescueParams::<Bn256, 3, 2>::default();
+    let params = RescueParams::<Bn256, 2, 3>::default();
     let mut group = crit.benchmark_group("Rescue Round Function Comparison");
 
     group.bench_function("New Rescue", |b| {
@@ -76,20 +76,20 @@ fn bench_rescue_round_function_comparison(crit: &mut Criterion) {
 }
 
 fn bench_rescue_round_function(crit: &mut Criterion) {
-    let params = RescueParams::<Bn256, 3, 2>::default();
+    let params = RescueParams::<Bn256, 2, 3>::default();
     crit.bench_function("Rescue Round Function", |b| {
         b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
     });
 }
 fn bench_poseidon_round_function(crit: &mut Criterion) {
-    let params = PoseidonParams::<Bn256, 3, 2>::default();
+    let params = PoseidonParams::<Bn256, 2, 3>::default();
     crit.bench_function("Poseidon Round Function", |b| {
         b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
     });
 }
 
 fn bench_rescue_prime_round_function(crit: &mut Criterion) {
-    let params = RescuePrimeParams::<Bn256, 3, 2>::default();
+    let params = RescuePrimeParams::<Bn256, 2, 3>::default();
     crit.bench_function("RescuePrime Round Function", |b| {
         b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
     });

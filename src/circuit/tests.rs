@@ -20,10 +20,10 @@ use rand::{Rand, Rng};
 fn test_sponge_gadget<
     E: Engine,
     CS: ConstraintSystem<E>,
-    P: HashParams<E, STATE_WIDTH, RATE>,
+    P: HashParams<E, RATE, WIDTH>,
     R: Rng,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     cs: &mut CS,
     rng: &mut R,
@@ -36,11 +36,11 @@ fn test_sponge_gadget<
         *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
     }
 
-    let mut hasher = GenericSponge::<_, P, STATE_WIDTH, RATE>::from_params(params);
+    let mut hasher = GenericSponge::<_, P, RATE, WIDTH>::from_params(params);
     hasher.absorb(&inputs);
     let expected = hasher.squeeze(None);
 
-    let mut gadget = GenericSpongeGadget::<_, P, STATE_WIDTH, RATE>::from(params);
+    let mut gadget = GenericSpongeGadget::<_, P, RATE, WIDTH>::from(params);
     gadget.absorb(cs, &inputs_as_num).unwrap();
     let actual = gadget.squeeze(cs, None).unwrap();
 
@@ -55,34 +55,34 @@ fn test_sponge_gadget<
 
 #[test]
 fn test_sponge_gadget_rescue() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let rng = &mut init_rng();
     let cs = &mut init_cs::<Bn256>();
 
     let params = RescueParams::default();
-    test_sponge_gadget::<_, _, _, _, STATE_WIDTH, RATE>(cs, rng, &params);
+    test_sponge_gadget::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
 }
 
 #[test]
 fn test_sponge_gadget_poseidon() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let rng = &mut init_rng();
     let cs = &mut init_cs::<Bn256>();
 
     let params = PoseidonParams::default();
-    test_sponge_gadget::<_, _, _, _, STATE_WIDTH, RATE>(cs, rng, &params);
+    test_sponge_gadget::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
 }
 
 #[test]
 #[should_panic] // TODO
 fn test_sponge_gadget_rescue_prime() {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
     let rng = &mut init_rng();
     let cs = &mut init_cs::<Bn256>();
 
     let params = RescuePrimeParams::default();
-    test_sponge_gadget::<_, _, _, _, STATE_WIDTH, RATE>(cs, rng, &params);
+    test_sponge_gadget::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
 }

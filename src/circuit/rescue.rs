@@ -22,9 +22,9 @@ pub fn circuit_rescue_hash<E: Engine, CS: ConstraintSystem<E>, const L: usize>(
     cs: &mut CS,
     input: &[Num<E>; L],
 ) -> Result<[Num<E>; 2], SynthesisError> {
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
-    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::<E, RATE, WIDTH>::default();
     circuit_generic_hash(cs, &params, input).map(|res| res.try_into().expect(""))
 }
 
@@ -37,49 +37,49 @@ pub fn gadget_rescue_hash_var_length<E: Engine, CS: ConstraintSystem<E>>(
     input: &[Num<E>],
 ) -> Result<[Num<E>; 2], SynthesisError> {
     // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
-    const STATE_WIDTH: usize = 3;
+    const WIDTH: usize = 3;
     const RATE: usize = 2;
-    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::<E, RATE, WIDTH>::default();
     circuit_generic_hash_var_length(cs, &params, input).map(|res| res.try_into().expect(""))
 }
 
 pub fn gadget_generic_rescue_hash<
     E: Engine,
     CS: ConstraintSystem<E>,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
     const LENGTH: usize,
 >(
     cs: &mut CS,
     input: &[Num<E>; LENGTH],
 ) -> Result<[Num<E>; RATE], SynthesisError> {
-    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::<E, RATE, WIDTH>::default();
     circuit_generic_hash(cs, &params, input).map(|res| res.try_into().expect(""))
 }
 
 pub fn gadget_generic_rescue_hash_var_length<
     E: Engine,
     CS: ConstraintSystem<E>,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     cs: &mut CS,
     input: &[Num<E>],
 ) -> Result<[Num<E>; RATE], SynthesisError> {
-    let params = RescueParams::<E, STATE_WIDTH, RATE>::default();
+    let params = RescueParams::<E, RATE, WIDTH>::default();
     circuit_generic_hash_var_length(cs, &params, input).map(|res| res.try_into().expect(""))
 }
 
 pub(crate) fn gadget_rescue_round_function<
     E: Engine,
     CS: ConstraintSystem<E>,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     cs: &mut CS,
     params: &P,
-    state: &mut [LinearCombination<E>; STATE_WIDTH],
+    state: &mut [LinearCombination<E>; WIDTH],
 ) -> Result<(), SynthesisError> {
     assert_eq!(
         params.hash_family(),

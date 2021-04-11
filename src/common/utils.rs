@@ -65,16 +65,16 @@ pub(crate) fn scalar_product<E: Engine>(a: &[E::Fr], b: &[E::Fr]) -> E::Fr {
 pub(crate) fn construct_mds_matrix<E: Engine, R: Rng, const S: usize>(
     rng: &mut R,
 ) -> [[E::Fr; S]; S] {
-    let state_width = S;
+    let WIDTH = S;
 
     loop {
-        let x: Vec<E::Fr> = (0..state_width).map(|_| rng.gen()).collect();
-        let y: Vec<E::Fr> = (0..state_width).map(|_| rng.gen()).collect();
+        let x: Vec<E::Fr> = (0..WIDTH).map(|_| rng.gen()).collect();
+        let y: Vec<E::Fr> = (0..WIDTH).map(|_| rng.gen()).collect();
 
         let mut invalid = false;
 
         // quick and dirty check for uniqueness of x
-        for i in 0..(state_width) {
+        for i in 0..(WIDTH) {
             if invalid {
                 continue;
             }
@@ -92,7 +92,7 @@ pub(crate) fn construct_mds_matrix<E: Engine, R: Rng, const S: usize>(
         }
 
         // quick and dirty check for uniqueness of y
-        for i in 0..(state_width) {
+        for i in 0..(WIDTH) {
             if invalid {
                 continue;
             }
@@ -110,7 +110,7 @@ pub(crate) fn construct_mds_matrix<E: Engine, R: Rng, const S: usize>(
         }
 
         // quick and dirty check for uniqueness of x vs y
-        for i in 0..(state_width) {
+        for i in 0..(WIDTH) {
             if invalid {
                 continue;
             }
@@ -128,10 +128,10 @@ pub(crate) fn construct_mds_matrix<E: Engine, R: Rng, const S: usize>(
         }
 
         // by previous checks we can be sure in uniqueness and perform subtractions easily
-        let mut mds_matrix = vec![E::Fr::zero(); state_width * state_width];
+        let mut mds_matrix = vec![E::Fr::zero(); WIDTH * WIDTH];
         for (i, x) in x.into_iter().enumerate() {
             for (j, y) in y.iter().enumerate() {
-                let place_into = i * (state_width) + j;
+                let place_into = i * (WIDTH) + j;
                 let mut element = x;
                 element.sub_assign(y);
                 mds_matrix[place_into] = element;

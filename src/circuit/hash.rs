@@ -12,10 +12,10 @@ use std::convert::TryInto;
 
 pub fn circuit_generic_hash<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
+    P: HashParams<E, RATE, WIDTH>,
     CS: ConstraintSystem<E>,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     cs: &mut CS,
     params: &P,
@@ -26,10 +26,10 @@ pub fn circuit_generic_hash<
 
 pub fn circuit_generic_hash_var_length<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
+    P: HashParams<E, RATE, WIDTH>,
     CS: ConstraintSystem<E>,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     cs: &mut CS,
     params: &P,
@@ -41,10 +41,10 @@ pub fn circuit_generic_hash_var_length<
 
 fn inner_generic_hash<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
+    P: HashParams<E, RATE, WIDTH>,
     CS: ConstraintSystem<E>,
-    const STATE_WIDTH: usize,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     cs: &mut CS,
     params: &P,

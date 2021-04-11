@@ -14,27 +14,27 @@ pub enum SpongeModes {
 pub struct GenericSponge<
     'a,
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 > {
     params: &'a P,
-    state: [E::Fr; STATE_WIDTH],
+    state: [E::Fr; WIDTH],
     mode: SpongeModes,
 }
 
 impl<
         'a,
         E: Engine,
-        P: HashParams<E, STATE_WIDTH, RATE>,
-        const STATE_WIDTH: usize,
+        P: HashParams<E, RATE, WIDTH>,
         const RATE: usize,
-    > GenericSponge<'a, E, P, STATE_WIDTH, RATE>
+        const WIDTH: usize,
+    > GenericSponge<'a, E, P, RATE, WIDTH>
 {
     pub fn from_params(params: &'a P) -> Self {
         Self {
             params,
-            state: [E::Fr::zero(); STATE_WIDTH],
+            state: [E::Fr::zero(); WIDTH],
             mode: SpongeModes::Standard(false),
         }
     }
@@ -44,10 +44,10 @@ impl<
 impl<
         'a,
         E: Engine,
-        P: HashParams<E, STATE_WIDTH, RATE>,
-        const STATE_WIDTH: usize,
+        P: HashParams<E, RATE, WIDTH>,
         const RATE: usize,
-    > Sponge<E, STATE_WIDTH, RATE> for GenericSponge<'a, E, P, STATE_WIDTH, RATE>
+        const WIDTH: usize,
+    > Sponge<E, RATE, WIDTH> for GenericSponge<'a, E, P, RATE, WIDTH>
 {
     fn specialize(&mut self, capacity_value: Option<E::Fr>) {
         let value = capacity_value.unwrap_or(E::Fr::zero());
@@ -152,12 +152,12 @@ impl<
 
 pub fn generic_round_function<
     E: Engine,
-    P: HashParams<E, STATE_WIDTH, RATE>,
-    const STATE_WIDTH: usize,
+    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
+    const WIDTH: usize,
 >(
     params: &P,
-    state: &mut [E::Fr; STATE_WIDTH],
+    state: &mut [E::Fr; WIDTH],
 ) {
     match params.hash_family() {
         HashFamily::Rescue => crate::rescue::rescue_round_function(params, state),
