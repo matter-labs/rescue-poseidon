@@ -36,7 +36,7 @@ fn test_sponge_gadget<
         *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
     }
 
-    let mut hasher = GenericSponge::<_, P, STATE_WIDTH, RATE>::from(params);
+    let mut hasher = GenericSponge::<_, P, STATE_WIDTH, RATE>::from_params(params);
     hasher.absorb(&inputs);
     let expected = hasher.squeeze(None);
 

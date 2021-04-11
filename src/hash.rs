@@ -49,7 +49,7 @@ fn inner_generic_hash<
         .cloned()
         .collect::<Vec<E::Fr>>();
 
-    let mut sponge = GenericSponge::from(params);
+    let mut sponge = GenericSponge::from_params(params);
 
     sponge.specialize(capacity_value);
     sponge.absorb(&input_with_padding);

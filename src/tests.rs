@@ -120,7 +120,7 @@ fn test_poseidon_comparisons_with_original_one() {
     expected[1] = original_poseidon.squeeze_out_single();
 
     let new_params = PoseidonParams::<Bn256, STATE_WIDTH, RATE>::default();
-    let mut hasher = GenericSponge::from(&new_params);
+    let mut hasher = GenericSponge::from_params(&new_params);
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
 
@@ -144,7 +144,7 @@ fn test_rescue_comparisons_with_original_one() {
     expected[1] = original_rescue.squeeze_out_single();
 
     let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
-    let mut hasher = GenericSponge::from(&new_params);
+    let mut hasher = GenericSponge::from_params(&new_params);
     hasher.absorb(&input);
     let actual = hasher.squeeze(None);
 
@@ -157,7 +157,7 @@ fn test_sponge_phase_absorb() {
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = RescueParams::default();
-    let mut sponge = GenericSponge::<Bn256, _, STATE_WIDTH, RATE>::from(&params);
+    let mut sponge = GenericSponge::<Bn256, _, STATE_WIDTH, RATE>::from_params(&params);
 
     sponge.absorb(&[Fr::one(); 2]);
     sponge.absorb(&[Fr::one(); 2]);
@@ -169,7 +169,7 @@ fn test_sponge_phase_squeeze() {
     const STATE_WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = RescueParams::default();
-    let mut sponge = GenericSponge::<Bn256, _, STATE_WIDTH, RATE>::from(&params);
+    let mut sponge = GenericSponge::<Bn256, _, STATE_WIDTH, RATE>::from_params(&params);
 
     sponge.squeeze(None);
 }
@@ -189,7 +189,7 @@ fn test_generic_rescue_bn256_fixed_length() {
     let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
 
     let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
-    let mut rescue_hasher = GenericSponge::from(&new_params);
+    let mut rescue_hasher = GenericSponge::from_params(&new_params);
     rescue_hasher.specialize(Some(Fr::from_repr(FrRepr::from(2u64)).expect("")));
     rescue_hasher.absorb(&input);
     let actual = rescue_hasher.squeeze(None);
@@ -214,7 +214,7 @@ fn test_generic_rescue_bn256_var_length() {
     let expected = franklin_crypto::rescue::rescue_hash::<Bn256>(&old_params, &input);
 
     let new_params = RescueParams::<Bn256, STATE_WIDTH, RATE>::default();
-    let mut rescue_hasher = GenericSponge::from(&new_params);
+    let mut rescue_hasher = GenericSponge::from_params(&new_params);
     rescue_hasher.specialize(Some(Fr::from_repr(FrRepr::from(2u64)).expect("")));
     rescue_hasher.absorb(&input);
     let actual = rescue_hasher.squeeze(None);

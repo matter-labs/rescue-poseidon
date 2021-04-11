@@ -29,9 +29,9 @@ impl<
         P: HashParams<E, STATE_WIDTH, RATE>,
         const STATE_WIDTH: usize,
         const RATE: usize,
-    > From<&'a P> for GenericSponge<'a, E, P, STATE_WIDTH, RATE>
+    > GenericSponge<'a, E, P, STATE_WIDTH, RATE>
 {
-    fn from(params: &'a P) -> Self {
+    pub fn from_params(params: &'a P) -> Self {
         Self {
             params,
             state: [E::Fr::zero(); STATE_WIDTH],
