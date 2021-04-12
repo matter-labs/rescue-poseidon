@@ -21,7 +21,7 @@ pub fn rescue_prime_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::F
 
 /// Receives inputs whose length `unknown` prior (variable-length).
 /// Also uses custom domain strategy which does not touch to value of capacity element
-/// and does not apply any padding rule. 
+/// and does not apply any padding rule.
 /// Uses pre-defined state-width=3 and rate=2.
 pub fn rescue_prime_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
     // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
@@ -44,11 +44,7 @@ pub fn generic_rescue_prime<
     generic_hash(&params, input)
 }
 
-pub fn generic_rescue_prime_var_length<
-    E: Engine,
-    const RATE: usize,
-    const WIDTH: usize,
->(
+pub fn generic_rescue_prime_var_length<E: Engine, const RATE: usize, const WIDTH: usize>(
     input: &[E::Fr],
 ) -> [E::Fr; RATE] {
     let params = RescuePrimeParams::<E, RATE, WIDTH>::default();
@@ -68,14 +64,10 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
     for RescuePrimeParams<E, RATE, WIDTH>
 {
     fn default() -> Self {
-        let (params, alpha, alpha_inv) =
-            super::params::rescue_prime_params::<E, RATE, WIDTH>();
+        let (params, alpha, alpha_inv) = super::params::rescue_prime_params::<E, RATE, WIDTH>();
         Self {
             full_rounds: params.full_rounds,
-            round_constants: params
-                .round_constants()
-                .try_into()
-                .expect("constant array"),
+            round_constants: params.round_constants().try_into().expect("constant array"),
             mds_matrix: *params.mds_matrix(),
             alpha,
             alpha_inv,
@@ -114,7 +106,7 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
         self.alpha_inv
     }
 
-    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH];WIDTH]]) {
+    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH]; WIDTH]]) {
         unimplemented!("RescuePrime doesn't use optimized mds matrixes")
     }
 
@@ -132,8 +124,12 @@ pub(crate) fn rescue_prime_round_function<
     params: &P,
     state: &mut [E::Fr; WIDTH],
 ) {
-    assert_eq!(params.hash_family(), HashFamily::RescuePrime, "Incorrect hash family!");
-    for round in 0..params.number_of_full_rounds() {
+    assert_eq!(
+        params.hash_family(),
+        HashFamily::RescuePrime,
+        "Incorrect hash family!"
+    );
+    for round in 0..params.number_of_full_rounds() - 1 {
         // sbox alpha
         sbox::<E>(params.alpha(), state);
         // mds
@@ -144,7 +140,6 @@ pub(crate) fn rescue_prime_round_function<
             .iter_mut()
             .zip(params.constants_of_round(round).iter())
             .for_each(|(s, c)| s.add_assign(c));
-
         // sbox alpha inv
         sbox::<E>(params.alpha_inv(), state);
 

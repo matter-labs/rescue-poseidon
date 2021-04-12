@@ -78,11 +78,9 @@ fn compute_alpha(p: &[u8]) -> (BigUint, BigUint) {
     )
 }
 
-fn compute_round_constants<E: Engine, const WIDTH: usize>(
+fn compute_round_constants<E: Engine, const RATE: usize, const WIDTH: usize>(
     modulus_bytes: &[u8],
     p_big: BigInt,
-    m: usize,
-    capacity: usize,
     security_level: usize,
     n: usize,
 ) -> Vec<[E::Fr; WIDTH]> {
@@ -95,6 +93,9 @@ fn compute_round_constants<E: Engine, const WIDTH: usize>(
         shake.update(input);
         shake.finalize_boxed(num_bytes)
     }
+
+    let m = WIDTH;
+    let capacity = WIDTH-RATE;
 
     let modulus_bit_len = (modulus_bytes.len() * 8 - 2) as f32;
 
@@ -152,14 +153,12 @@ pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
     let p_big = BigInt::from_bytes_le(Sign::Plus, &modulus_bytes);
     let (alpha, alpha_inv) = compute_alpha(&modulus_bytes);
     let alpha = alpha.to_u32_digits()[0] as usize;
-    let number_of_rounds = get_number_of_rounds(RATE, WIDTH, security_level, alpha);
+    let number_of_rounds = get_number_of_rounds(WIDTH, WIDTH-RATE, security_level, alpha);
 
     let mut params = HasherParams::new(security_level, number_of_rounds, 0);
-    params.round_constants = compute_round_constants::<E, WIDTH>(
+    params.round_constants = compute_round_constants::<E, RATE, WIDTH>(
         &modulus_bytes,
         p_big,
-        WIDTH,
-        WIDTH - RATE, // TODO: remove them
         security_level,
         number_of_rounds,
     );
@@ -197,11 +196,11 @@ mod tests {
             "alpha {} alpha inv {:x} number of rounds {}",
             alpha, alpha_inv, n
         );
-        let round_constants = compute_round_constants::<Bn256, 3>(
+
+
+        let round_constants = compute_round_constants::<Bn256, 2, 3>(
             &modulus_bytes,
-            p_big,
-            m,
-            capacity,
+            p_big,            
             security_level,
             n,
         );

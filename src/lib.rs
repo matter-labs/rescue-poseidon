@@ -10,5 +10,6 @@ mod hash;
 #[cfg(test)]
 mod tests;
 
+pub use hash::{generic_hash, generic_hash_var_length};
 pub use sponge::{GenericSponge, generic_round_function};
 pub use traits::Sponge;

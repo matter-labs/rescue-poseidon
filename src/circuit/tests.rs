@@ -76,7 +76,6 @@ fn test_sponge_gadget_poseidon() {
 }
 
 #[test]
-#[should_panic] // TODO
 fn test_sponge_gadget_rescue_prime() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;

@@ -85,7 +85,7 @@ pub(crate) fn gadget_rescue_prime_round_function<
         "Incorrect hash family!"
     );
 
-    for round in 0..params.number_of_full_rounds() {
+    for round in 0..params.number_of_full_rounds() - 1 {
         // apply sbox
         // each lc will have 3 terms but there will be 1 in first iteration
         // total cost 2 gate per state vars = 6
