@@ -5,7 +5,7 @@ This repo contains implementations of arithmetization oriented hash functions(Re
 ## Usage
 Add dependency
 ```toml
-rescue_poseidon = 0.4
+rescue_poseidon = {version = "0.4", git = "https://github.com/matter-labs/rescue-poseidon"}
 ```
 
 ```rust
