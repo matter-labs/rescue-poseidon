@@ -5,19 +5,20 @@ This repo contains implementations of arithmetization oriented hash functions(Re
 ## Usage
 Add dependency
 ```toml
-rescue_poseidon = 0.4
+rescue_poseidon = 0.1
 ```
 
 ```rust
-use franklin_crypto::bellman::bn256::Fr;
-use rescue_poseidon::rescue::rescue_hash;
+    use franklin_crypto::bellman::bn256::Fr;
+    use franklin_crypto::bellman::Field;
+    use rescue_poseidon::rescue_hash;
 
-const INPUT_LENGTH: usize = 2;
-let rng = &mut init_rng();
-let input = (0..INPUT_LENGTH).map(|_| Fr::rand(rng)).collect::<Vec<Fr>>();
+    const INPUT_LENGTH: usize = 2;
+    let input = [Fr::one(); INPUT_LENGTH]; // dummy input
 
-let result = rescue_hash::<Bn256, INPUT_LENGTH>(&input.try_into().expect("constant array"));
-assert_eq!(result.len(), 2);
+    // fixed length rescue hash
+    let result = rescue_hash::<Bn256, INPUT_LENGTH>(&input);
+    assert_eq!(result.len(), 2);
 ```
 More examples can be found in `examples` folder.
 

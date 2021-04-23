@@ -1,21 +1,109 @@
 use franklin_crypto::bellman::{Engine, Field, PrimeField};
 
-use crate::common::params::HasherParams;
-
 use crate::common::matrix::{compute_optimized_matrixes, mmul_assign, try_inverse};
+use crate::common::params::InnerHashParameters;
+use crate::traits::{HashFamily, HashParams};
+
+#[derive(Clone, Debug)]
+pub struct PoseidonParams<E: Engine, const RATE: usize, const WIDTH: usize> {
+    state: [E::Fr; WIDTH],
+    mds_matrix: [[E::Fr; WIDTH]; WIDTH],
+    optimized_round_constants: Vec<[E::Fr; WIDTH]>,
+    optimized_mds_matrixes: ([[E::Fr; WIDTH]; WIDTH], Vec<[[E::Fr; WIDTH]; WIDTH]>),
+    alpha: E::Fr,
+    full_rounds: usize,
+    partial_rounds: usize,
+    allow_custom_gate: bool,
+}
+
+impl<E: Engine, const RATE: usize, const WIDTH: usize> PartialEq
+    for PoseidonParams<E, RATE, WIDTH>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.hash_family() == other.hash_family()
+    }
+}
+
+impl<E: Engine, const RATE: usize, const WIDTH: usize> Default for PoseidonParams<E, RATE, WIDTH> {
+    fn default() -> Self {
+        let (params, alpha, optimized_round_constants, optimized_mds_matrixes) =
+            super::params::poseidon_light_params::<E, RATE, WIDTH>();
+        Self {
+            state: [E::Fr::zero(); WIDTH],
+            mds_matrix: params.mds_matrix,
+            alpha,
+            optimized_round_constants,
+            optimized_mds_matrixes,
+            full_rounds: params.full_rounds,
+            partial_rounds: params.partial_rounds,
+            allow_custom_gate: true,
+        }
+    }
+}
+
+impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH>
+    for PoseidonParams<E, RATE, WIDTH>
+{
+    fn hash_family(&self) -> HashFamily {
+        HashFamily::Poseidon
+    }
+
+    fn constants_of_round(&self, _round: usize) -> [E::Fr; WIDTH] {
+        unimplemented!("Poseidon uses optimized constants")
+    }
+
+    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH] {
+        self.mds_matrix
+    }
+
+    fn number_of_full_rounds(&self) -> usize {
+        self.full_rounds
+    }
+
+    fn number_of_partial_rounds(&self) -> usize {
+        self.partial_rounds
+    }
+
+    fn alpha(&self) -> E::Fr {
+        self.alpha
+    }
+
+    fn alpha_inv(&self) -> E::Fr {
+        unimplemented!("Poseidon doesn't have inverse direction")
+    }
+
+    fn optimized_round_constants(&self) -> &[[E::Fr; WIDTH]] {
+        &self.optimized_round_constants
+    }
+
+    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH]; WIDTH]]) {
+        (
+            &self.optimized_mds_matrixes.0,
+            &self.optimized_mds_matrixes.1,
+        )
+    }
+
+    fn can_use_custom_gates(&self) -> bool {
+        true
+    }
+
+    fn set_allow_custom_gate(&mut self, allow: bool) {
+        self.allow_custom_gate = allow;
+    }
+}
 
 pub fn poseidon_params<E: Engine, const RATE: usize, const WIDTH: usize>(
-) -> (HasherParams<E, RATE, WIDTH>, E::Fr) {
+) -> (InnerHashParameters<E, RATE, WIDTH>, E::Fr) {
     let security_level = 80;
     let full_rounds = 8;
     // let partial_rounds = 83;
     let partial_rounds = 33;
 
-    let mut params = HasherParams::new(security_level, full_rounds, partial_rounds);
+    let mut params = InnerHashParameters::new(security_level, full_rounds, partial_rounds);
 
     let number_of_rounds = full_rounds + partial_rounds;
     let rounds_tag = b"Rescue_f";
-    params.compute_round_constants(number_of_rounds, rounds_tag);        
+    params.compute_round_constants(number_of_rounds, rounds_tag);
     params.compute_mds_matrix_for_poseidon();
 
     let alpha = E::Fr::from_str("5").unwrap();
@@ -24,13 +112,10 @@ pub fn poseidon_params<E: Engine, const RATE: usize, const WIDTH: usize>(
 }
 
 pub(crate) fn poseidon_light_params<E: Engine, const RATE: usize, const WIDTH: usize>() -> (
-    HasherParams<E, RATE, WIDTH>,
+    InnerHashParameters<E, RATE, WIDTH>,
     E::Fr,
     Vec<[E::Fr; WIDTH]>,
-    (
-        [[E::Fr; WIDTH]; WIDTH],
-        Vec<[[E::Fr; WIDTH]; WIDTH]>,
-    ),
+    ([[E::Fr; WIDTH]; WIDTH], Vec<[[E::Fr; WIDTH]; WIDTH]>),
 ) {
     let (params, alpha) = poseidon_params();
 
@@ -41,12 +126,10 @@ pub(crate) fn poseidon_light_params<E: Engine, const RATE: usize, const WIDTH: u
         params.full_rounds,
     );
 
-    
     const SUBDIM: usize = 2; // TODO:
-    let optimized_matrixes = compute_optimized_matrixes::<E, WIDTH, SUBDIM>(
-        params.partial_rounds,
-        &params.mds_matrix,
-    );
+    assert!(WIDTH - SUBDIM == 1, "only dim 2 and dim 3 matrixes are allowed for now.");
+    let optimized_matrixes =
+        compute_optimized_matrixes::<E, WIDTH, SUBDIM>(params.partial_rounds, &params.mds_matrix);
     (params, alpha, optimized_constants, optimized_matrixes)
 }
 
@@ -105,16 +188,6 @@ pub(crate) fn compute_optimized_round_constants<E: Engine, const WIDTH: usize>(
         .for_each(|(a, b)| {
             *a = b;
         });
-
-    // let mut optimized_constants: Vec<[E::Fr; WIDTH]> =
-    //     Vec::with_capacity(number_of_partial_rounds + number_of_full_rounds);
-
-    // final_constants
-    //     .chunks_exact(WIDTH)
-    //     .zip(optimized_constants.iter_mut())
-    //     .for_each(|(values, constants)| {
-    //         *constants = values.try_into().expect("round constants in const");
-    //     });
 
     final_constants
 }

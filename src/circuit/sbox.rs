@@ -16,6 +16,7 @@ use franklin_crypto::{
 // Poseidon uses partial sbox which basically computes power of
 // single element of state. If constraint system has support of
 // custom gate then computation costs only single gate.
+// TODO use const generics here
 pub(crate) fn sbox_quintic<E: Engine, CS: ConstraintSystem<E>>(
     cs: &mut CS,
     prev_state: &mut [LinearCombination<E>],
@@ -24,6 +25,7 @@ pub(crate) fn sbox_quintic<E: Engine, CS: ConstraintSystem<E>>(
         .iter_mut()
         .map(|s| s.clone().into_num(cs))
         .collect();
+    // let state_as_nums = [Num::Constant(E::Fr::zero()); ]
     match CS::Params::HAS_CUSTOM_GATES == true && CS::Params::STATE_WIDTH >= 4 {
         true => {
             for (s, s_num) in prev_state.iter_mut().zip(state_as_nums) {

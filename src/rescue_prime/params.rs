@@ -1,4 +1,4 @@
-use crate::common::params::HasherParams;
+use crate::common::params::InnerHashParameters;
 use franklin_crypto::bellman::pairing::ff::{PrimeFieldRepr, ScalarEngine};
 use franklin_crypto::bellman::pairing::Engine;
 extern crate num_bigint;
@@ -11,6 +11,89 @@ use num_integer::{ExtendedGcd, Integer};
 use num_traits::{One, Zero};
 use std::convert::TryInto;
 use std::ops::{Mul, Sub};
+use crate::traits::{HashParams, HashFamily};
+
+
+#[derive(Clone, Debug)]
+pub struct RescuePrimeParams<E: Engine, const RATE: usize, const WIDTH: usize> {
+    pub full_rounds: usize,
+    pub round_constants: Vec<[E::Fr; WIDTH]>,
+    pub mds_matrix: [[E::Fr; WIDTH]; WIDTH],
+    pub alpha: E::Fr,
+    pub alpha_inv: E::Fr,
+    allow_custom_gate: bool,
+}
+impl<E: Engine, const RATE: usize, const WIDTH: usize> PartialEq for RescuePrimeParams<E, RATE, WIDTH>{
+    fn eq(&self, other: &Self) -> bool {
+        self.hash_family() == other.hash_family()
+    }
+}
+
+impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
+    for RescuePrimeParams<E, RATE, WIDTH>
+{
+    fn default() -> Self {
+        let (params, alpha, alpha_inv) = super::params::rescue_prime_params::<E, RATE, WIDTH>();
+        Self {
+            full_rounds: params.full_rounds,
+            round_constants: params.round_constants().try_into().expect("constant array"),
+            mds_matrix: *params.mds_matrix(),
+            alpha,
+            alpha_inv,
+            allow_custom_gate: true,
+        }
+    }
+}
+
+impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH>
+    for RescuePrimeParams<E, RATE, WIDTH>
+{
+    fn hash_family(&self) -> HashFamily {
+        HashFamily::RescuePrime
+    }
+
+    fn constants_of_round(&self, round: usize) -> [E::Fr; WIDTH] {
+        self.round_constants[round]
+    }
+
+    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH] {
+        self.mds_matrix
+    }
+
+    fn number_of_full_rounds(&self) -> usize {
+        self.full_rounds
+    }
+
+    fn number_of_partial_rounds(&self) -> usize {
+        unimplemented!("RescuePrime doesn't have partial rounds.")
+    }
+
+    fn alpha(&self) -> E::Fr {
+        self.alpha
+    }
+
+    fn alpha_inv(&self) -> E::Fr {
+        self.alpha_inv
+    }
+
+    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH]; WIDTH]]) {
+        unimplemented!("RescuePrime doesn't use optimized mds matrixes")
+    }
+
+    fn optimized_round_constants(&self) -> &[[E::Fr; WIDTH]] {
+        unimplemented!("RescuePrime doesn't use optimized round constants")
+    }
+
+    fn can_use_custom_gates(&self) -> bool {
+        true
+    }
+
+    fn set_allow_custom_gate(&mut self, allow: bool) {
+        self.allow_custom_gate = allow;    
+    }
+    
+}
+
 
 fn get_number_of_rounds(m: usize, r: usize, security_level: usize, alpha: usize) -> usize {
     let capacity = m - r;
@@ -144,7 +227,7 @@ fn compute_round_constants<E: Engine, const RATE: usize, const WIDTH: usize>(
 }
 
 pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
-) -> (HasherParams<E, RATE, WIDTH>, E::Fr, E::Fr) {
+) -> (InnerHashParameters<E, RATE, WIDTH>, E::Fr, E::Fr) {
     let security_level = 80;
 
     let mut modulus_bytes = vec![];
@@ -155,7 +238,7 @@ pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
     let alpha = alpha.to_u32_digits()[0] as usize;
     let number_of_rounds = get_number_of_rounds(WIDTH, WIDTH-RATE, security_level, alpha);
 
-    let mut params = HasherParams::new(security_level, number_of_rounds, 0);
+    let mut params = InnerHashParameters::new(security_level, number_of_rounds, 0);
     params.round_constants = compute_round_constants::<E, RATE, WIDTH>(
         &modulus_bytes,
         p_big,

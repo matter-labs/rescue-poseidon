@@ -382,6 +382,7 @@ fn try_inverse_dim_3<E: Engine, const DIM: usize>(
     Some(result)
 }
 
+
 // Computes identity of given dimension.
 fn identity<E: Engine, const DIM: usize>() -> [[E::Fr; DIM]; DIM] {
     let mut identity = [[E::Fr::zero(); DIM]; DIM];

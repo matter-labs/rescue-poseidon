@@ -7,7 +7,7 @@ pub enum HashFamily {
     RescuePrime,
 }
 
-pub trait HashParams<E: Engine, const RATE: usize, const WIDTH: usize>: Sized {
+pub trait HashParams<E: Engine, const RATE: usize, const WIDTH: usize>: Clone + Send + Sync {
     fn hash_family(&self) -> HashFamily;
     fn constants_of_round(&self, round: usize) -> [E::Fr; WIDTH];
     fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH];
@@ -17,14 +17,6 @@ pub trait HashParams<E: Engine, const RATE: usize, const WIDTH: usize>: Sized {
     fn alpha_inv(&self) -> E::Fr;
     fn optimized_round_constants(&self) -> &[[E::Fr; WIDTH]];
     fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH];WIDTH]]);
-}
-
-pub trait Sponge<E: Engine, const RATE: usize, const WIDTH: usize> {
-    fn specialize(&mut self, capacity_value: Option<E::Fr>);
-
-    fn absorb(&mut self, input: &[E::Fr]);
-
-    fn squeeze(&mut self, number_of_elems: Option<usize>) -> Vec<E::Fr>;
-
-    fn reset(&mut self);
+    fn can_use_custom_gates(&self) -> bool;
+    fn set_allow_custom_gate(&mut self, allow: bool);
 }
