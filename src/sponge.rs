@@ -24,33 +24,26 @@ enum SpongeMode<E: Engine, const RATE: usize> {
 
 #[derive(Clone)]
 pub struct GenericSponge<
-    'a,
     E: Engine,
-    P: HashParams<E, RATE, WIDTH>,
     const RATE: usize,
     const WIDTH: usize,
 > {
     state: [E::Fr; WIDTH],
-    params: &'a P,
     mode: SpongeMode<E, RATE>,
 }
 
-impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDTH: usize>
-    GenericSponge<'a, E, P, RATE, WIDTH>
+impl<'a, E: Engine, const RATE: usize, const WIDTH: usize>
+    GenericSponge<E, RATE, WIDTH>
 {
-    pub fn new_from_params(params: &'a P) -> Self {
-        Self::new_from_params_and_state([E::Fr::zero(); WIDTH], params)
-    }
-
-    pub fn new_from_params_and_state(state: [E::Fr; WIDTH], params: &'a P) -> Self {
+    pub fn new() -> Self {
+        
         Self {
-            state,
-            params,
+            state: [E::Fr::zero(); WIDTH],
             mode: SpongeMode::Absorb([None; RATE]),
         }
     }
 
-    pub fn hash(input: &[E::Fr], params: &P) -> [E::Fr; RATE] {
+    pub fn hash<P: HashParams<E, RATE, WIDTH>>(input: &[E::Fr], params: &P) -> [E::Fr; RATE] {
         // init state
         let mut state = [E::Fr::zero(); WIDTH];
 
@@ -88,18 +81,18 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
         output
     }
 
-    pub fn absorb_multiple(&mut self, input: &[E::Fr]) {
+    pub fn absorb_multiple<P: HashParams<E, RATE, WIDTH>>(&mut self, input: &[E::Fr], params: &P) {
         // compute padding values
         let padding_strategy = DomainStrategy::CustomVariableLength;
         let padding_values = padding_strategy
             .generate_padding_values::<E>(input.len(), RATE);
 
         for inp in input.iter().chain(padding_values.iter()) {
-            self.absorb(*inp)
+            self.absorb(*inp, params)
         }
     }
 
-    pub fn absorb(&mut self, input: E::Fr) {
+    pub fn absorb<P: HashParams<E, RATE, WIDTH>>(&mut self, input: E::Fr, params: &P) {
         match self.mode {
             SpongeMode::Absorb(ref mut buf) => {
                 // push value into buffer
@@ -121,7 +114,7 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
                 }
 
                 // here we can absorb values. run round function implicitly there
-                absorb::<E, _, RATE, WIDTH>(&mut self.state, &mut unwrapped_buffer, self.params);
+                absorb::<E, _, RATE, WIDTH>(&mut self.state, &mut unwrapped_buffer, params);
 
                 // absorb value
                 buf[0] = Some(input);
@@ -156,7 +149,7 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
         }
     }
 
-    pub fn squeeze(&mut self) -> Option<E::Fr> {
+    pub fn squeeze<P: HashParams<E, RATE, WIDTH>>(&mut self, params: &P) -> Option<E::Fr> {
         loop {
             match self.mode {
                 SpongeMode::Absorb(ref mut buf) => {
@@ -181,7 +174,7 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
                     }
 
                     // permute state
-                    absorb(&mut self.state, &all_inputs, self.params);
+                    absorb(&mut self.state, &all_inputs, params);
 
                     // push values into squeezing buffer for later squeezing
                     let mut squeeze_buffer = [None; RATE];

@@ -32,13 +32,13 @@ fn test_circuit_var_len_generic_hasher<
         *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
     }
 
-    let mut hasher = GenericSponge::<_, P, RATE, WIDTH>::new_from_params(params);
-    hasher.absorb_multiple(&inputs);
-    let expected = hasher.squeeze().expect("a squeezed elem");
+    let mut hasher = GenericSponge::<_, RATE, WIDTH>::new();
+    hasher.absorb_multiple(&inputs, params);
+    let expected = hasher.squeeze(params).expect("a squeezed elem");
 
-    let mut circuit_gadget = CircuitGenericSponge::<_, P, RATE, WIDTH>::new_from_params(params);
-    circuit_gadget.absorb_multiple(cs, &inputs_as_num).unwrap();
-    let actual = circuit_gadget.squeeze(cs).unwrap().expect("a squeezed elem");
+    let mut circuit_gadget = CircuitGenericSponge::<_,RATE, WIDTH>::new();
+    circuit_gadget.absorb_multiple(cs, &inputs_as_num, params).unwrap();
+    let actual = circuit_gadget.squeeze(cs, params).unwrap().expect("a squeezed elem");
 
     // cs.finalize();
     // assert!(cs.is_satisfied());
@@ -47,6 +47,7 @@ fn test_circuit_var_len_generic_hasher<
     assert_eq!(actual.get_value().unwrap(), expected);
 
 }
+// TODO add test for a case when padding needed
 fn test_circuit_fixed_len_generic_hasher<
     E: Engine,
     CS: ConstraintSystem<E>,
@@ -66,9 +67,9 @@ fn test_circuit_fixed_len_generic_hasher<
         *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
     }
 
-    let expected = GenericSponge::<_, P, RATE, WIDTH>::hash(&inputs, params);
+    let expected = GenericSponge::<_, RATE, WIDTH>::hash(&inputs, params);
 
-    let actual = CircuitGenericSponge::<_, P, RATE, WIDTH>::hash(cs, &inputs_as_num, &params).unwrap();
+    let actual = CircuitGenericSponge::<_, RATE, WIDTH>::hash::<_, P>(cs, &inputs_as_num, &params).unwrap();
 
     // cs.finalize();
     // assert!(cs.is_satisfied());

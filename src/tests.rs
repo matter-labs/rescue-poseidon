@@ -155,11 +155,11 @@ fn test_rescue_hash_var_len() {
     expected[1] = original_rescue.squeeze_out_single();
 
     let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
-    let mut hasher = GenericSponge::new_from_params(&new_params);
-    hasher.absorb_multiple(&input);
+    let mut hasher = GenericSponge::new();
+    hasher.absorb_multiple(&input,&new_params);
     let mut actual = [Fr::zero(); 2];
-    actual[0] = hasher.squeeze().expect("an element");
-    actual[1] = hasher.squeeze().expect("an element");
+    actual[0] = hasher.squeeze(&new_params).expect("an element");
+    actual[1] = hasher.squeeze(&new_params).expect("an element");
 
     assert_eq!(actual, expected);
 }
@@ -199,7 +199,7 @@ fn test_new_generic_hasher_fixed_length_single_output_with_hardcoded_input() {
     
     let expected = crate::rescue::rescue_hash::<Bn256, LENGTH>(&input);
 
-    let actual = GenericSponge::<_, RescueParams<_, 2, 3>, 2, 3>::hash(&input, &params);
+    let actual = GenericSponge::<_, 2, 3>::hash(&input, &params);
 
     assert_eq!(original[0], expected[0]);
     assert_eq!(expected[0], actual[0]);
@@ -224,13 +224,13 @@ fn test_var_length_without_padding_when_pad_needed() {
     let expected = original_rescue.squeeze_out_single();
 
     let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
-    let mut generic_hasher = GenericSponge::new_from_params(&new_params);
-    generic_hasher.absorb_multiple(&input[..2]);
-    generic_hasher.absorb_multiple(&input[2..4]);
-    generic_hasher.absorb_multiple(&input[4..6]);
-    generic_hasher.absorb_multiple(&input[6..]);
+    let mut generic_hasher = GenericSponge::new();
+    generic_hasher.absorb_multiple(&input[..2], &new_params);
+    generic_hasher.absorb_multiple(&input[2..4], &new_params);
+    generic_hasher.absorb_multiple(&input[4..6], &new_params);
+    generic_hasher.absorb_multiple(&input[6..], &new_params);
 
-    let actual = generic_hasher.squeeze().expect("a squeezed elem");
+    let actual = generic_hasher.squeeze(&new_params).expect("a squeezed elem");
 
     assert_eq!(actual, expected);
 }
@@ -254,14 +254,14 @@ fn test_multiple_absorb_steps() {
     let expected = original_rescue.squeeze_out_single();
 
     let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
-    let mut generic_hasher = GenericSponge::new_from_params(&new_params);
-    generic_hasher.absorb_multiple(&input[..2]);
-    generic_hasher.absorb_multiple(&input[2..4]);
-    generic_hasher.absorb_multiple(&input[4..6]);
-    generic_hasher.absorb_multiple(&input[6..]);
+    let mut generic_hasher = GenericSponge::new();
+    generic_hasher.absorb_multiple(&input[..2], &new_params);
+    generic_hasher.absorb_multiple(&input[2..4], &new_params);
+    generic_hasher.absorb_multiple(&input[4..6], &new_params);
+    generic_hasher.absorb_multiple(&input[6..], &new_params);
     generic_hasher.pad_if_necessary();
 
-    let actual = generic_hasher.squeeze().expect("a squeezed elem");
+    let actual = generic_hasher.squeeze(&new_params).expect("a squeezed elem");
 
     assert_eq!(actual, expected);
 }
@@ -282,12 +282,12 @@ fn test_new_generic_hasher_single_absorb_compare_with_old_rescue_sponge() {
     let expected = original_rescue.squeeze_out_single();
 
     let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
-    let mut generic_hasher = GenericSponge::new_from_params(&new_params);
-    generic_hasher.absorb(input[0]);
+    let mut generic_hasher = GenericSponge::new();
+    generic_hasher.absorb(input[0], &new_params);
     generic_hasher.pad_if_necessary();
 
 
-    let actual = generic_hasher.squeeze().expect("a squeezed elem");
+    let actual = generic_hasher.squeeze(&new_params).expect("a squeezed elem");
 
     assert_eq!(actual, expected);
 }
@@ -297,9 +297,9 @@ fn test_generic_hasher_squeeze_before_no_absorbing() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = RescueParams::default();
-    let mut sponge = GenericSponge::<Bn256, _, RATE, WIDTH>::new_from_params(&params);
+    let mut sponge = GenericSponge::<Bn256, RATE, WIDTH>::new();
 
-    let _ = sponge.squeeze().is_none();
+    let _ = sponge.squeeze(&params).is_none();
 }
 
 #[test]
@@ -319,11 +319,11 @@ fn test_multiple_squeeze() {
     expected[1] = original_rescue.squeeze_out_single();
 
     let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
-    let mut generic_hasher = GenericSponge::new_from_params(&new_params);
-    generic_hasher.absorb_multiple(&input);
+    let mut generic_hasher = GenericSponge::new();
+    generic_hasher.absorb_multiple(&input, &new_params);
     let mut actual = [Fr::zero(); RATE];
-    actual[0] = generic_hasher.squeeze().expect("a squeezed elem");
-    actual[1] = generic_hasher.squeeze().expect("a squeezed elem");
+    actual[0] = generic_hasher.squeeze(&new_params).expect("a squeezed elem");
+    actual[1] = generic_hasher.squeeze(&new_params).expect("a squeezed elem");
 
     assert_eq!(expected, actual);
 }
@@ -337,12 +337,12 @@ fn test_excessive_multiple_squeeze() {
     let input = test_inputs::<Bn256, ILENGTH>();
     let params = RescueParams::<Bn256, RATE, WIDTH>::default();
 
-    let mut generic_hasher = GenericSponge::new_from_params(&params);
+    let mut generic_hasher = GenericSponge::new();
 
-    generic_hasher.absorb_multiple(&input);
+    generic_hasher.absorb_multiple(&input, &params);
 
-    let _ = generic_hasher.squeeze().expect("a squeezed elem");
-    let _ = generic_hasher.squeeze().expect("a squeezed elem");
-    let _ = generic_hasher.squeeze().is_none();
+    let _ = generic_hasher.squeeze(&params).expect("a squeezed elem");
+    let _ = generic_hasher.squeeze(&params).expect("a squeezed elem");
+    let _ = generic_hasher.squeeze(&params).is_none();
 
 }

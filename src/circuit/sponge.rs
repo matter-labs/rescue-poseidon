@@ -34,40 +34,26 @@ enum SpongeMode<E: Engine, const RATE: usize> {
 }
 
 #[derive(Clone)]
-pub struct CircuitGenericSponge<
-    'a,
-    E: Engine,
-    P: HashParams<E, RATE, WIDTH>,
-    const RATE: usize,
-    const WIDTH: usize,
-> {
+pub struct CircuitGenericSponge<E: Engine, const RATE: usize, const WIDTH: usize> {
     state: [LinearCombination<E>; WIDTH],
     mode: SpongeMode<E, RATE>,
-    params: &'a P,
 }
 
-impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDTH: usize>
-    CircuitGenericSponge<'a, E, P, RATE, WIDTH>
-{
-    pub fn new_from_params(params: &'a P) -> Self {
-        let initial_state = (0..WIDTH)
+impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<E, RATE, WIDTH> {
+    pub fn new() -> Self {
+        let state = (0..WIDTH)
             .map(|_| LinearCombination::zero())
             .collect::<Vec<_>>()
             .try_into()
             .expect("constant array");
 
-        Self::new_from_params_and_state(initial_state, params)
-    }
-
-    pub fn new_from_params_and_state(state: [LinearCombination<E>; WIDTH], params: &'a P) -> Self {
         Self {
-            state: state,
+            state,
             mode: SpongeMode::Absorb([None; RATE]),
-            params,
         }
     }
 
-    pub fn hash<CS: ConstraintSystem<E>>(
+    pub fn hash<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
         cs: &mut CS,
         input: &[Num<E>],
         params: &P,
@@ -121,22 +107,24 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
         Ok(output)
     }
 
-    pub fn absorb_multiple<CS: ConstraintSystem<E>>(
+    pub fn absorb_multiple<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
         &mut self,
         cs: &mut CS,
         input: &[Num<E>],
+        params: &P,
     ) -> Result<(), SynthesisError> {
         for inp in input.into_iter() {
-            self.absorb(cs, *inp)?
+            self.absorb(cs, *inp, params)?
         }
 
         Ok(())
     }
 
-    pub fn absorb<CS: ConstraintSystem<E>>(
+    pub fn absorb<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
         &mut self,
         cs: &mut CS,
         input: Num<E>,
+        params: &P,
     ) -> Result<(), SynthesisError> {
         match self.mode {
             SpongeMode::Absorb(ref mut buf) => {
@@ -159,12 +147,7 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
                 }
 
                 // here we can absorb values. run round function implicitly there
-                absorb::<_, _, P, RATE, WIDTH>(
-                    cs,
-                    &mut self.state,
-                    &mut unwrapped_buffer,
-                    self.params,
-                )?;
+                absorb::<_, _, P, RATE, WIDTH>(cs, &mut self.state, &mut unwrapped_buffer, params)?;
 
                 // absorb value
                 buf[0] = Some(input);
@@ -180,9 +163,31 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
         Ok(())
     }
 
-    pub fn squeeze<CS: ConstraintSystem<E>>(
+    pub fn pad_if_necessary(&mut self) {
+        match self.mode {
+            SpongeMode::Absorb(ref mut buf) => {
+                let unwrapped_buffer_len = buf.iter().filter(|el| el.is_some()).count();
+                // compute padding values
+                let padding_strategy = DomainStrategy::CustomVariableLength;
+                let padding_values =
+                    padding_strategy.generate_padding_values::<E>(unwrapped_buffer_len, RATE);
+                let mut padding_values_it = padding_values.iter().cloned();
+
+                for b in buf {
+                    if b.is_none() {
+                        *b = Some(Num::Constant(padding_values_it.next().expect("next elm")))
+                    }
+                }
+                assert!(padding_values_it.next().is_none());
+            }
+            SpongeMode::Squeeze(_) => (),
+        }
+    }
+
+    pub fn squeeze<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
         &mut self,
         cs: &mut CS,
+        params: &P,
     ) -> Result<Option<Num<E>>, SynthesisError> {
         loop {
             match self.mode {
@@ -198,17 +203,6 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
                         }
                     }
 
-                    // compute padding values
-                    let padding_strategy = DomainStrategy::CustomVariableLength;
-                    let padding_values = padding_strategy
-                        .generate_padding_values::<E>(unwrapped_buffer.len(), RATE)
-                        .iter()
-                        .map(|el| Num::Constant(*el))
-                        .collect::<Vec<_>>();
-
-                    // chain all values
-                    unwrapped_buffer.extend_from_slice(&padding_values);
-
                     // make input array
                     let mut all_inputs = [Num::Constant(E::Fr::zero()); RATE];
                     for (a, b) in all_inputs.iter_mut().zip(unwrapped_buffer) {
@@ -216,7 +210,7 @@ impl<'a, E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WIDT
                     }
 
                     // permute state
-                    absorb(cs, &mut self.state, &all_inputs, self.params)?;
+                    absorb(cs, &mut self.state, &all_inputs, params)?;
 
                     // push values into squeezing buffer for later squeezing
                     let mut squeeze_buffer = [None; RATE];

@@ -86,15 +86,15 @@ fn run_generic_hash_var_length<E: Engine>() {
 
     // we can send all type of params so lets start with rescue
     let rescue_params = RescueParams::<Bn256, RATE, WIDTH>::default();
-    let mut rescue_hasher = GenericSponge::new_from_params(&rescue_params);
-    rescue_hasher.absorb_multiple(&input);
-    let rescue_result = rescue_hasher.squeeze().expect("squeezed eleme");
+    let mut rescue_hasher = GenericSponge::new();
+    rescue_hasher.absorb_multiple(&input, &rescue_params);
+    let rescue_result = rescue_hasher.squeeze(&rescue_params).expect("squeezed eleme");
 
     // go with poseidon
     let poseidon_params = PoseidonParams::<Bn256, RATE, WIDTH>::default();
-    let mut poseidon_hasher = GenericSponge::new_from_params(&poseidon_params);
-    poseidon_hasher.absorb_multiple(&input);
-    let poseidon_result = poseidon_hasher.squeeze().expect("squeezed eleme");
+    let mut poseidon_hasher = GenericSponge::new();
+    poseidon_hasher.absorb_multiple(&input, &poseidon_params);
+    let poseidon_result = poseidon_hasher.squeeze(&poseidon_params).expect("squeezed eleme");
 }
 
 fn run_circuit_generic_hash_fixed_length<E: Engine>() {
@@ -131,25 +131,25 @@ fn run_circuit_generic_hash_var_length<E: Engine>() {
     let (input, input_as_nums) = test_input::<E, INPUT_LENGTH>();
     // we can send all type of params so lets start with rescue
     let rescue_params = RescueParams::<E, RATE, WIDTH>::default();
-    let mut rescue_hasher = GenericSponge::new_from_params(&rescue_params);
+    let mut rescue_hasher = GenericSponge::new();
     for inp in input.iter() {
-        rescue_hasher.absorb(*inp);
+        rescue_hasher.absorb(*inp, &rescue_params);
     }
-    let _ = rescue_hasher.squeeze().unwrap();
+    let _ = rescue_hasher.squeeze(&rescue_params).unwrap();
 
     // now, hash with poseidon params
     let poseidon_params = PoseidonParams::<E, RATE, WIDTH>::default();
-    let mut poseidon_hasher = GenericSponge::new_from_params(&poseidon_params);
+    let mut poseidon_hasher = GenericSponge::new();
     for inp in input.iter() {
-        poseidon_hasher.absorb(*inp);
+        poseidon_hasher.absorb(*inp, &poseidon_params);
     }
-    let _ = poseidon_hasher.squeeze().unwrap();
+    let _ = poseidon_hasher.squeeze(&poseidon_params).unwrap();
 
     // now, hash with rescue prime params
     let rescue_prime_params = RescuePrimeParams::<E, RATE, WIDTH>::default();
-    let mut rescue_prime_hasher = GenericSponge::new_from_params(&rescue_prime_params);
+    let mut rescue_prime_hasher = GenericSponge::new();
     for inp in input.iter() {
-        rescue_prime_hasher.absorb(*inp);
+        rescue_prime_hasher.absorb(*inp, &rescue_prime_params);
     }
-    let _ = rescue_prime_hasher.squeeze().unwrap();
+    let _ = rescue_prime_hasher.squeeze(&rescue_prime_params).unwrap();
 }
