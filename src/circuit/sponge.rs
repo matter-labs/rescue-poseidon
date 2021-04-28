@@ -163,6 +163,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
         Ok(())
     }
 
+    /// Apply padding manually especially when single absorb called single/many times
     pub fn pad_if_necessary(&mut self) {
         match self.mode {
             SpongeMode::Absorb(ref mut buf) => {
@@ -183,7 +184,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
             SpongeMode::Squeeze(_) => (),
         }
     }
-
+    
     pub fn squeeze<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
         &mut self,
         cs: &mut CS,
@@ -197,10 +198,12 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
                     for el in buf {
                         if let Some(value) = el {
                             unwrapped_buffer.push(*value);
-                        } else {
-                            // processing buffer was done and we need padding
-                            break;
                         }
+                    }
+
+                    if unwrapped_buffer.len() != RATE {
+                        // processing buffer was done and we need padding                        
+                        return Ok(None);
                     }
 
                     // make input array

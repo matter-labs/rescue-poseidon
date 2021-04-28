@@ -5,8 +5,9 @@ use franklin_crypto::bellman::{Engine, Field, PrimeField};
 /// The only difference is that Rescue Prime requires no padding for
 /// fixed length input. Rescue and Poseidon require same padding rule
 /// for variable length input.
+#[derive(Clone)]
 pub enum DomainStrategy {
-    // The capacity value is length x (^264 ) + (o − 1)
+    // The capacity value is length x (2^64 ) + (o − 1)
     // where o the output length. The padding consists of the field elements being 0.
     FixedLength,
     /// Padding is necessary for variable-length inputs, even if the input is already

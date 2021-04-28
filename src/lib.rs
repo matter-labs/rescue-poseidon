@@ -17,3 +17,4 @@ pub use sponge::{generic_hash, generic_round_function, GenericSponge};
 pub use poseidon::{params::PoseidonParams, poseidon_hash};
 pub use rescue::{params::RescueParams, rescue_hash};
 pub use rescue_prime::{params::RescuePrimeParams, rescue_prime_hash};
+pub use common::domain_strategy::DomainStrategy;

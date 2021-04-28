@@ -16,7 +16,7 @@ pub fn rescue_prime_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::F
     const RATE: usize = 2;
 
     let params = RescuePrimeParams::<E, RATE, WIDTH>::default();
-    generic_hash(&params, input)
+    generic_hash(&params, input, None)
 }
 
 

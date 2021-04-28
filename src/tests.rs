@@ -4,9 +4,9 @@ use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
 use franklin_crypto::bellman::{Field};
 use franklin_crypto::rescue::{bn256::Bn256RescueParams, RescueHashParams, StatefulRescue};
 use franklin_crypto::{
-    bellman::plonk::better_better_cs::cs::{TrivialAssembly, Width4MainGateWithDNext},
+    bellman::plonk::better_better_cs::cs::{TrivialAssembly, Width4MainGateWithDNext, PlonkCsWidth4WithNextStepParams},
     bellman::Engine,
-    plonk::circuit::Width4WithCustomGates,
+    plonk::circuit::{Width4WithCustomGates},
 };
 use poseidon_hash::StatefulSponge as PoseidonSponge;
 use poseidon_hash::{bn256::Bn256PoseidonParams, PoseidonHashParams};
@@ -20,6 +20,10 @@ pub(crate) fn init_rng() -> XorShiftRng {
 pub(crate) fn init_cs<E: Engine>(
 ) -> TrivialAssembly<E, Width4WithCustomGates, Width4MainGateWithDNext> {
     TrivialAssembly::<E, Width4WithCustomGates, Width4MainGateWithDNext>::new()
+}
+pub(crate) fn init_cs_no_custom_gate<E: Engine>(
+) -> TrivialAssembly<E, PlonkCsWidth4WithNextStepParams, Width4MainGateWithDNext> {
+    TrivialAssembly::<E, PlonkCsWidth4WithNextStepParams, Width4MainGateWithDNext>::new()
 }
 
 fn test_inputs<E: Engine, const L: usize>() -> [E::Fr; L] {
@@ -69,7 +73,7 @@ fn test_rescue_params() {
 
     let old_params = Bn256RescueParams::new_checked_2_into_1();
 
-    let (new_params, _, _) = crate::rescue::params::compute_params::<Bn256, RATE, WIDTH>();
+    let (new_params, _, _) = crate::rescue::params::compute_params::<Bn256, RATE, WIDTH, 4>();
 
     let number_of_rounds = new_params.full_rounds;
 
@@ -199,14 +203,14 @@ fn test_new_generic_hasher_fixed_length_single_output_with_hardcoded_input() {
     
     let expected = crate::rescue::rescue_hash::<Bn256, LENGTH>(&input);
 
-    let actual = GenericSponge::<_, 2, 3>::hash(&input, &params);
+    let actual = GenericSponge::<_, 2, 3>::hash(&input, &params, None);
 
     assert_eq!(original[0], expected[0]);
     assert_eq!(expected[0], actual[0]);
 }
 
 #[test]
-fn test_var_length_without_padding_when_pad_needed() {
+fn test_var_length_multiple_absorbs_without_padding_when_pad_needed() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
     const LENGTH: usize = 7;
@@ -234,6 +238,28 @@ fn test_var_length_without_padding_when_pad_needed() {
 
     assert_eq!(actual, expected);
 }
+
+#[test]
+#[should_panic(expected="padding was necessary!")]
+fn test_var_length_single_absorb_without_padding_when_pad_needed() {
+    const WIDTH: usize = 3;
+    const RATE: usize = 2;
+    const LENGTH: usize = 1;
+
+    let input = test_inputs::<Bn256, LENGTH>();    
+
+    let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
+    let mut generic_hasher = GenericSponge::new();
+    generic_hasher.absorb(input[0], &new_params);
+
+    let _ = generic_hasher.squeeze(&new_params).is_none();
+
+    let original_params = Bn256RescueParams::new_checked_2_into_1();
+    let mut original_rescue = StatefulRescue::<Bn256>::new(&original_params);
+    original_rescue.absorb_single_value(input[0]);
+    let _ = original_rescue.squeeze_out_single();
+}
+
 #[test]
 fn test_multiple_absorb_steps() {
     const WIDTH: usize = 3;

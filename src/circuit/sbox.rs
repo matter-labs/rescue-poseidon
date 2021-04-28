@@ -1,9 +1,9 @@
 use franklin_crypto::{
     bellman::{
-        plonk::better_better_cs::cs::{ConstraintSystem, PlonkConstraintSystemParams},
+        plonk::better_better_cs::cs::{ArithmeticTerm, ConstraintSystem, MainGateTerm, PlonkConstraintSystemParams},
         Engine,
     },
-    bellman::{Field, PrimeField, SynthesisError},
+    bellman::{Field, SynthesisError},
     plonk::circuit::allocated_num::AllocatedNum,
     plonk::circuit::{
         allocated_num::Num, custom_rescue_gate::apply_5th_power,
@@ -11,157 +11,281 @@ use franklin_crypto::{
     },
 };
 
+use crate::traits::Sbox;
+
 // Substitution box is non-linear part of permutation function.
 // It basically computes 5th power of each element in the state.
 // Poseidon uses partial sbox which basically computes power of
 // single element of state. If constraint system has support of
 // custom gate then computation costs only single gate.
 // TODO use const generics here
-pub(crate) fn sbox_quintic<E: Engine, CS: ConstraintSystem<E>>(
+pub(crate) fn sbox<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize>(
     cs: &mut CS,
-    prev_state: &mut [LinearCombination<E>],
+    power: &Sbox,
+    prev_state: &mut [LinearCombination<E>; WIDTH],
+    state_range: Option<std::ops::Range<usize>>,
+    use_custom_gate: bool,
 ) -> Result<(), SynthesisError> {
-    let state_as_nums: Vec<Result<Num<E>, SynthesisError>> = prev_state
-        .iter_mut()
-        .map(|s| s.clone().into_num(cs))
-        .collect();
-    // let state_as_nums = [Num::Constant(E::Fr::zero()); ]
-    match CS::Params::HAS_CUSTOM_GATES == true && CS::Params::STATE_WIDTH >= 4 {
-        true => {
-            for (s, s_num) in prev_state.iter_mut().zip(state_as_nums) {
-                *s = match s_num? {
-                    Num::Variable(var) => LinearCombination::from(apply_5th_power(cs, &var, None)?),
-                    Num::Constant(c) => {
-                        let tmp = c.pow([5u64]);
-                        let mut lc = LinearCombination::zero();
-                        lc.add_assign_constant(tmp);
-                        lc
-                    }
-                };
-            }
-            Ok(())
-        }
-        false => {
-            for (s, s_num) in prev_state.iter_mut().zip(state_as_nums) {
-                let s_num = s_num?.get_variable();
-                let squa = s_num.square(cs)?;
-                let quad = squa.square(cs)?;
-                let quin = quad.mul(cs, &s_num)?;
-                *s = LinearCombination::from(quin);
-            }
-            Ok(())
+    let use_custom_gate =
+        use_custom_gate && CS::Params::HAS_CUSTOM_GATES == true && CS::Params::STATE_WIDTH >= 4;
+    match power {
+        Sbox::Alpha(alpha) => sbox_alpha(
+            cs,
+            alpha,
+            prev_state,
+            state_range.expect("full state not partial"),
+            use_custom_gate,
+        ),
+        Sbox::AlphaInverse(alpha_inv) => {
+            // TODO
+            // assert!(
+            //     state_range.is_none(),
+            //     "partial sbox doesn't supported in inverse direction"
+            // );
+            sbox_alpha_inv(cs, alpha_inv, prev_state, use_custom_gate)
         }
     }
 }
-// This function computes power of inverse of alpha to each element of state.
-// By custom gate support, it costs only single gate. Under the hood, it proves
-// that 5th power of each element of state is equal to itself.(x^(1/5)^5==x)
-pub(crate) fn sbox_quintic_inv<E: Engine, CS: ConstraintSystem<E>>(
+
+fn sbox_alpha<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize>(
     cs: &mut CS,
-    alpha_inv: E::Fr,
-    prev_state: &mut [LinearCombination<E>],
+    alpha: &u64,
+    prev_state: &mut [LinearCombination<E>; WIDTH],
+    state_range: std::ops::Range<usize>,
+    use_custom_gate: bool,
 ) -> Result<(), SynthesisError> {
-    let state_as_nums: Vec<Result<Num<E>, SynthesisError>> = prev_state
-        .iter_mut()
-        .map(|s| s.clone().into_num(cs))
-        .collect();
-    match CS::Params::HAS_CUSTOM_GATES == true && CS::Params::STATE_WIDTH >= 4 {
-        false => unimplemented!(),
-        true => {
-            for (s, s_num) in prev_state.iter_mut().zip(state_as_nums) {
-                // x^(1/alpha)
-                let alpha_inv_alloc = AllocatedNum::alloc(cs, || {
-                    let original = s_num?.get_value().expect("");
-                    let result = original.pow(alpha_inv.into_repr());
-                    Ok(result)
-                })?;
-                let _ = apply_5th_power(cs, &alpha_inv_alloc, None)?;
-                *s = LinearCombination::from(alpha_inv_alloc);
+    if *alpha != 5u64 {
+        unimplemented!("only 5th power is supported!")
+    }
+    for lc in prev_state[state_range].iter_mut() {
+        match lc.clone().into_num(cs)? {
+            Num::Constant(value) => {
+                let result = value.pow(&[*alpha]);
+                *lc = LinearCombination::zero();
+                lc.add_assign_constant(result);
+            }
+            Num::Variable(ref value) => {
+                let result = if use_custom_gate {
+                    apply_5th_power(cs, value, None)?
+                } else {
+                    let square = value.square(cs)?;
+                    let quad = square.square(cs)?;
+                    quad.mul(cs, value)?
+                };
+                *lc = LinearCombination::from(result);
             }
         }
     }
 
-    Ok(())
+    return Ok(());
+}
+// This function computes power of inverse of alpha to each element of state.
+// By custom gate support, it costs only single gate. Under the hood, it proves
+// that 5th power of each element of state is equal to itself.(x^(1/5)^5==x)
+fn sbox_alpha_inv<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize, const N: usize>(
+    cs: &mut CS,
+    alpha_inv: &[u64; N],
+    prev_state: &mut [LinearCombination<E>; WIDTH],
+    use_custom_gate: bool,
+) -> Result<(), SynthesisError> {
+    for lc in prev_state.iter_mut() {
+        match lc.clone().into_num(cs)? {
+            Num::Constant(value) => {
+                let result = value.pow(alpha_inv);
+                *lc = LinearCombination::zero();
+                lc.add_assign_constant(result);
+            }
+            Num::Variable(ref value) => {
+                let powered = AllocatedNum::alloc(cs, || {
+                    let base = value.get_value().expect("value");
+                    
+                    let result = base.pow(alpha_inv);
+                    Ok(result)
+                })?;
+
+                if use_custom_gate {
+                    let _  = apply_5th_power(cs, &powered, Some(*value))?; 
+                } else {
+                    let squared = powered.square(cs)?;
+                    let quad = squared.square(cs)?;
+
+                    let mut term = MainGateTerm::<E>::new();
+                    let fifth_term = ArithmeticTerm::from_variable(quad.get_variable())
+                        .mul_by_variable(powered.get_variable());
+                    let el_term = ArithmeticTerm::from_variable(value.get_variable());
+                    term.add_assign(fifth_term);
+                    term.sub_assign(el_term);
+                    cs.allocate_main_gate(term)?;
+                };
+                *lc = LinearCombination::from(powered);
+            }
+        }
+    }
+
+    return Ok(());
 }
 
 #[cfg(test)]
 mod test {
     use franklin_crypto::{
-        bellman::bn256::{Bn256, Fr},
-        bellman::PrimeField,
-        plonk::circuit::{allocated_num::AllocatedNum, linear_combination::LinearCombination},
+        bellman::{bn256::Bn256, PrimeField},
+        plonk::circuit::linear_combination::LinearCombination,
     };
-    use rand::Rand;
+    use std::convert::TryInto;
 
-    use crate::tests::{init_cs, init_rng};
+    use super::super::tests::test_inputs;
+    use crate::tests::{init_cs, init_cs_no_custom_gate};
 
     use super::*;
 
+    fn test_sbox<E: Engine, CS: ConstraintSystem<E>, const N: usize>(
+        cs: &mut CS,
+        power: Sbox,
+        number_of_rounds: usize,
+        use_custom_gate: bool,
+        use_partial_state: bool,
+        use_allocated: bool,
+    ) {
+        let (mut state, state_as_nums) = test_inputs::<E, _, N>(cs, use_allocated);
+
+        let mut state_as_lc = vec![];
+        for num in std::array::IntoIter::new(state_as_nums) {
+            let lc = LinearCombination::from(num);
+            state_as_lc.push(lc);
+        }
+        let mut state_as_lc: [LinearCombination<E>; N] = state_as_lc.try_into().expect("array");
+
+        let state_range = if use_partial_state {
+            Some(0..1)
+        } else {
+            Some(0..N)
+        };
+
+        assert_eq!(state_range.as_ref().unwrap().len(), N);
+
+        for _ in 0..number_of_rounds {
+            crate::common::sbox::sbox::<E>(&power, &mut state);
+            sbox(
+                cs,
+                &power,
+                &mut state_as_lc,
+                state_range.clone(),
+                use_custom_gate,
+            )
+            .expect("5th apply successfu");
+        }
+    }
     #[test]
     fn test_sbox_quintic_with_custom_gate() {
         let cs = &mut init_cs::<Bn256>();
-        let rng = &mut init_rng();
 
-        let a = Fr::rand(rng);
-        let a_num = AllocatedNum::alloc(cs, || Ok(a)).expect("valid el");
-        let a_lc = LinearCombination::from(a_num);
+        const INPUT_LENGTH: usize = 3;
+        const NUM_ROUNDS: usize = 1;
 
-        let n = 3;
-        for _ in 0..n {
-            let _ = sbox_quintic(cs, &mut [a_lc.clone()]).expect("5th apply successfu");
-        }
-        // cs.finalize();
-        // assert!(cs.is_satisfied());
+        let alpha = Sbox::Alpha(5);
+
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha, NUM_ROUNDS, true, false, false);
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+
+        println!(
+            "quintic sbox takes {} gates with custom gate for {} iteration ",
+            cs.n(),
+            NUM_ROUNDS,
+        );
+    }
+    #[test]
+    fn test_sbox_quintic_without_custom_gate() {
+        let cs = &mut init_cs_no_custom_gate::<Bn256>();
+
+        const INPUT_LENGTH: usize = 3;
+        const NUM_ROUNDS: usize = 1;
+
+        let alpha = Sbox::Alpha(5);
+
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha, NUM_ROUNDS, false, false, true);
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+
+        println!(
+            "quintic sbox takes {} gates with custom gate for {} iteration ",
+            cs.n(),
+            NUM_ROUNDS,
+        );
+    }
+    #[test]
+    fn test_sbox_quintic_inv_with_custom_gate() {
+        let cs = &mut init_cs::<Bn256>();
+
+        const INPUT_LENGTH: usize = 3;
+        const NUM_ROUNDS: usize = 3;
+        let alpha = 5;
+        let alpha_inv = Sbox::AlphaInverse(compute_inverse_alpha::<Bn256, 4>(alpha));
+
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha_inv, NUM_ROUNDS, true, false, true);
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
 
         // println!(
-        //     "quintic sbox takes {} gates with custom gate for {} iteration ",
+        //     "quintic inverse sbox takes {} gates with custom gate for {} iteration ",
         //     cs.n(),
-        //     n
+        //     NUM_ROUNDS,
         // );
     }
     #[test]
-    fn test_sbox_alpha_without_custom_gate() {
-        // TODO: use CS which has no custom gate support
-        let cs = &mut init_cs::<Bn256>();
-        let rng = &mut init_rng();
+    fn test_sbox_quintic_inv_without_custom_gate() {
+        let cs = &mut init_cs_no_custom_gate::<Bn256>();
 
-        let a = Fr::rand(rng);
-        let a_num = AllocatedNum::alloc(cs, || Ok(a)).unwrap();
-        let b = Fr::rand(rng);
-        let b_num = AllocatedNum::alloc(cs, || Ok(b)).unwrap();
-        let b_lc = LinearCombination::from(b_num);
-        let mut a_lc = LinearCombination::from(a_num);
-        a_lc.add_assign(&b_lc);
-        let _alpha = Fr::from_str("5").unwrap();
+        const INPUT_LENGTH: usize = 3;
+        const NUM_ROUNDS: usize = 1;
 
-        let n = 2;
-        for _ in 0..n {
-            let _ = sbox_quintic(cs, &mut [a_lc.clone()]).unwrap();
-        }
-        // cs.finalize();
-        // assert!(cs.is_satisfied());
+        let alpha = 5;
+        let alpha_inv = Sbox::AlphaInverse(compute_inverse_alpha::<Bn256, 4>(alpha));
 
-        // println!(
-        //     "quintic sbox takes {} gates without custom gate for {} iteration ",
-        //     cs.n(),
-        //     n
-        // );
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha_inv, NUM_ROUNDS, false, false, true);
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+
+        println!(
+            "quintic inverse sbox takes {} gates without custom gate for {} iteration ",
+            cs.n(),
+            NUM_ROUNDS,
+        );
     }
+
+    fn compute_inverse_alpha<E: Engine, const N: usize>(alpha: u64) -> [u64; N] {
+        crate::common::utils::compute_gcd::<E, N>(alpha).expect("inverse of alpha")        
+    }
+
     #[test]
-    fn test_sbox_alpha_inv_without_custom_gate() {
+    fn test_apply_5th_power(){
+
         let cs = &mut init_cs::<Bn256>();
-        let rng = &mut init_rng();
 
-        let a = Fr::rand(rng);
-        let a_num = AllocatedNum::alloc(cs, || Ok(a)).unwrap();
-        let a_lc = LinearCombination::from(a_num);
-        let _alpha = Fr::from_str("5").unwrap();
-        let alpha_inv = crate::common::utils::compute_gcd::<Bn256>(5u64);
-        let _ = sbox_quintic_inv(cs, alpha_inv.expect("inverse of alpha"), &mut [a_lc]).unwrap();
+        let (mut state, state_as_nums) = test_inputs::<Bn256, _, 1>(cs, true);
 
-        // cs.finalize();
-        // assert!(cs.is_satisfied());
+        let element = state[0];
+        let element_allocated = state_as_nums[0];
 
-        // println!("power sbox takes {} gates without custom gate", cs.n());
+        println!("elem {} allocated {}", element, element_allocated.get_value().expect("msg"));
+
+        let alpha = 5u64;
+        let alpha_inv = compute_inverse_alpha::<Bn256, 4>(alpha);
+
+        let powered = AllocatedNum::alloc(cs, ||{
+            let result = element.pow(alpha_inv);
+            Ok(result)
+        }).unwrap();
+
+        let _ = apply_5th_power(cs, &powered, Some(element_allocated.get_variable())).expect("apply 5th power");
+
+        cs.finalize();
+
+        assert!(cs.is_satisfied());
+
     }
 }

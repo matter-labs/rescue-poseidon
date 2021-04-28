@@ -1,4 +1,4 @@
-use super::sbox::sbox_quintic;
+use super::sbox::sbox;
 use super::utils::{matrix_vector_product, mul_by_sparse_matrix};
 use crate::traits::{HashFamily, HashParams};
 use crate::poseidon::params::PoseidonParams;
@@ -9,6 +9,7 @@ use franklin_crypto::{
     plonk::circuit::{allocated_num::Num, linear_combination::LinearCombination},
 };
 use super::sponge::{circuit_generic_hash};
+use std::convert::TryInto;
 
 /// Receives inputs whose length `known` prior(fixed-length).
 /// Also uses custom domain strategy which basically sets value of capacity element to
@@ -48,6 +49,9 @@ pub(crate) fn circuit_poseidon_round_function<
     let (m_prime, sparse_matrixes) = &params.optimized_mds_matrixes();
     let optimized_round_constants = &params.optimized_round_constants();
 
+    let can_use_custom_gate = params.can_use_custom_gates();
+
+
     // first full rounds
     for round in 0..half_of_full_rounds {
         let round_constants = &optimized_round_constants[round];
@@ -57,7 +61,7 @@ pub(crate) fn circuit_poseidon_round_function<
             s.add_assign_constant(*c);
         }
         // non linear sbox
-        sbox_quintic::<E, _>(cs, state)?;
+        sbox(cs,params.alpha(), state, Some(0..WIDTH), can_use_custom_gate)?;
 
         // mul state by mds
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
@@ -76,18 +80,19 @@ pub(crate) fn circuit_poseidon_round_function<
     constants_for_partial_rounds.push([E::Fr::zero(); WIDTH]);
     // in order to reduce gate number we merge two consecutive iteration
     // which costs 2 gates per each
+    
     for (round_constant, sparse_matrix) in constants_for_partial_rounds
         [..constants_for_partial_rounds.len() - 1]
         .chunks(2)
         .zip(sparse_matrixes[..sparse_matrixes.len() - 1].chunks(2))
     {
         // first
-        sbox_quintic::<E, _>(cs, &mut state[..1])?;
+        sbox(cs,params.alpha(), state, Some(0..1), can_use_custom_gate)?;
         state[0].add_assign_constant(round_constant[0][0]);
         *state = mul_by_sparse_matrix(state, &sparse_matrix[0]);
 
         // second
-        sbox_quintic::<E, _>(cs, &mut state[..1])?;
+        sbox(cs,params.alpha(), state, Some(0..1), can_use_custom_gate)?;
         state[0].add_assign_constant(round_constant[1][0]);
         *state = mul_by_sparse_matrix(state, &sparse_matrix[1]);
         // reduce gate cost: LC -> Num -> LC
@@ -97,7 +102,7 @@ pub(crate) fn circuit_poseidon_round_function<
         }
     }
 
-    sbox_quintic::<E, _>(cs, &mut state[..1])?;
+    sbox(cs, params.alpha(), state, Some(0..1), can_use_custom_gate)?;
     state[0].add_assign_constant(constants_for_partial_rounds.last().unwrap()[0]);
     *state = mul_by_sparse_matrix(state, &sparse_matrixes.last().unwrap());
 
@@ -112,7 +117,7 @@ pub(crate) fn circuit_poseidon_round_function<
             s.add_assign_constant(*c);
         }
 
-        sbox_quintic::<E, _>(cs, state)?;
+        sbox(cs,params.alpha(), state, Some(0..WIDTH), can_use_custom_gate)?;
 
         // mul state by mds
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;

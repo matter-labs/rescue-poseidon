@@ -2,7 +2,7 @@ use franklin_crypto::bellman::{Engine, Field, PrimeField};
 
 use crate::common::matrix::{compute_optimized_matrixes, mmul_assign, try_inverse};
 use crate::common::params::InnerHashParameters;
-use crate::traits::{HashFamily, HashParams};
+use crate::traits::{HashFamily, HashParams, Sbox};
 
 #[derive(Clone, Debug)]
 pub struct PoseidonParams<E: Engine, const RATE: usize, const WIDTH: usize> {
@@ -10,7 +10,7 @@ pub struct PoseidonParams<E: Engine, const RATE: usize, const WIDTH: usize> {
     mds_matrix: [[E::Fr; WIDTH]; WIDTH],
     optimized_round_constants: Vec<[E::Fr; WIDTH]>,
     optimized_mds_matrixes: ([[E::Fr; WIDTH]; WIDTH], Vec<[[E::Fr; WIDTH]; WIDTH]>),
-    alpha: E::Fr,
+    alpha: Sbox,
     full_rounds: usize,
     partial_rounds: usize,
     allow_custom_gate: bool,
@@ -31,7 +31,7 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> Default for PoseidonParam
         Self {
             state: [E::Fr::zero(); WIDTH],
             mds_matrix: params.mds_matrix,
-            alpha,
+            alpha: Sbox::Alpha(alpha),
             optimized_round_constants,
             optimized_mds_matrixes,
             full_rounds: params.full_rounds,
@@ -64,11 +64,11 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
         self.partial_rounds
     }
 
-    fn alpha(&self) -> E::Fr {
-        self.alpha
+    fn alpha(&self) -> &Sbox {
+        &self.alpha
     }
 
-    fn alpha_inv(&self) -> E::Fr {
+    fn alpha_inv(&self) -> &Sbox {
         unimplemented!("Poseidon doesn't have inverse direction")
     }
 
@@ -93,7 +93,7 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
 }
 
 pub fn poseidon_params<E: Engine, const RATE: usize, const WIDTH: usize>(
-) -> (InnerHashParameters<E, RATE, WIDTH>, E::Fr) {
+) -> (InnerHashParameters<E, RATE, WIDTH>, u64) {
     let security_level = 80;
     let full_rounds = 8;
     // let partial_rounds = 83;
@@ -106,14 +106,14 @@ pub fn poseidon_params<E: Engine, const RATE: usize, const WIDTH: usize>(
     params.compute_round_constants(number_of_rounds, rounds_tag);
     params.compute_mds_matrix_for_poseidon();
 
-    let alpha = E::Fr::from_str("5").unwrap();
+    let alpha = 5u64;
 
     (params, alpha)
 }
 
 pub(crate) fn poseidon_light_params<E: Engine, const RATE: usize, const WIDTH: usize>() -> (
     InnerHashParameters<E, RATE, WIDTH>,
-    E::Fr,
+    u64,
     Vec<[E::Fr; WIDTH]>,
     ([[E::Fr; WIDTH]; WIDTH], Vec<[[E::Fr; WIDTH]; WIDTH]>),
 ) {

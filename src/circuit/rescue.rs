@@ -1,4 +1,4 @@
-use super::sbox::*;
+use super::sbox::sbox;
 use super::utils::matrix_vector_product;
 use crate::traits::{HashFamily, HashParams};
 use franklin_crypto::{bellman::plonk::better_better_cs::cs::ConstraintSystem};
@@ -51,9 +51,9 @@ pub(crate) fn circuit_rescue_round_function<
     for round in 0..2 * params.number_of_full_rounds() {
         // apply sbox
         if round & 1 == 0 {
-            sbox_quintic_inv::<E, _>(cs, params.alpha_inv(), state)?;
+            sbox(cs, params.alpha_inv(), state, Some(0..WIDTH), params.can_use_custom_gates())?;
         } else {
-            sbox_quintic(cs, state)?;
+            sbox(cs, params.alpha(), state, Some(0..WIDTH), params.can_use_custom_gates())?;
         }
         // mds row
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;

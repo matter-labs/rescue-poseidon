@@ -11,7 +11,7 @@ use rescue_poseidon::PoseidonParams;
 use rescue_poseidon::RescueParams;
 use rescue_poseidon::RescuePrimeParams;
 #[allow(dead_code)]
-use rescue_poseidon::{generic_hash, CircuitGenericSponge, GenericSponge};
+use rescue_poseidon::{generic_hash, CircuitGenericSponge, GenericSponge, DomainStrategy};
 use std::convert::TryInto;
 
 pub(crate) fn init_rng() -> XorShiftRng {
@@ -63,17 +63,18 @@ fn run_generic_hash_fixed_length<E: Engine>() {
     let (input, _) = test_input::<Bn256, INPUT_LENGTH>();
     // we can send all type of params so lets start with rescue
     let rescue_params = RescueParams::<Bn256, RATE, WIDTH>::default();
-    let result = generic_hash(&rescue_params, &input);
+    let result = generic_hash(&rescue_params, &input, None);
     assert_eq!(result.len(), RATE);
 
     // now, hash with poseidon params
     let poseidon_params = PoseidonParams::<Bn256, RATE, WIDTH>::default();
-    let result = generic_hash(&poseidon_params, &input);
+    let result = generic_hash(&poseidon_params, &input, None);
     assert_eq!(result.len(), RATE);
 
     // now, hash with rescue prime params
+    // in this case we use original domain strategy used in RescuePrime paper
     let rescue_prime_params = RescuePrimeParams::<Bn256, RATE, WIDTH>::default();
-    let result = generic_hash(&rescue_prime_params, &input);
+    let result = generic_hash(&rescue_prime_params, &input, Some(DomainStrategy::FixedLength));
     assert_eq!(result.len(), RATE);
 }
 
@@ -107,17 +108,17 @@ fn run_circuit_generic_hash_fixed_length<E: Engine>() {
     let (input, input_as_nums) = test_input::<E, INPUT_LENGTH>();
     // we can send all type of params so lets start with rescue
     let rescue_params = RescueParams::<E, RATE, WIDTH>::default();
-    let result = GenericSponge::hash(&input, &rescue_params);
+    let result = GenericSponge::hash(&input, &rescue_params, None);
     assert_eq!(result.len(), RATE);
 
     // now, hash with poseidon params
     let poseidon_params = PoseidonParams::<E, RATE, WIDTH>::default();
-    let result = GenericSponge::hash(&input, &poseidon_params);
+    let result = GenericSponge::hash(&input, &poseidon_params, None);
     assert_eq!(result.len(), RATE);
 
     // now, hash with rescue prime params
     let rescue_prime_params = RescuePrimeParams::<E, RATE, WIDTH>::default();
-    let result = GenericSponge::hash(&input, &rescue_prime_params);
+    let result = GenericSponge::hash(&input, &rescue_prime_params, None);
     assert_eq!(result.len(), RATE);
 }
 

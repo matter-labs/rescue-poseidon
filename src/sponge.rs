@@ -12,8 +12,9 @@ pub fn generic_hash<
 >(
     params: &P,
     input: &[E::Fr; LENGTH],
+    domain_strategy: Option<DomainStrategy>,
 ) -> [E::Fr; RATE] {
-    GenericSponge::hash(input, params)
+    GenericSponge::hash(input, params, domain_strategy)
 }
 
 #[derive(Clone)]
@@ -23,31 +24,44 @@ enum SpongeMode<E: Engine, const RATE: usize> {
 }
 
 #[derive(Clone)]
-pub struct GenericSponge<
-    E: Engine,
-    const RATE: usize,
-    const WIDTH: usize,
-> {
+pub struct GenericSponge<E: Engine, const RATE: usize, const WIDTH: usize> {
     state: [E::Fr; WIDTH],
     mode: SpongeMode<E, RATE>,
+    domain_strategy: Option<DomainStrategy>,
 }
 
-impl<'a, E: Engine, const RATE: usize, const WIDTH: usize>
-    GenericSponge<E, RATE, WIDTH>
-{
+impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> GenericSponge<E, RATE, WIDTH> {
     pub fn new() -> Self {
-        
         Self {
             state: [E::Fr::zero(); WIDTH],
             mode: SpongeMode::Absorb([None; RATE]),
+            domain_strategy: Some(DomainStrategy::CustomVariableLength),
         }
     }
 
-    pub fn hash<P: HashParams<E, RATE, WIDTH>>(input: &[E::Fr], params: &P) -> [E::Fr; RATE] {
+    pub fn new_from_domain_strategy(domain_strategy: DomainStrategy) -> Self {
+        match domain_strategy {
+            DomainStrategy::CustomVariableLength | DomainStrategy::VariableLength => (),
+            _ => panic!("only variable length domain strategies allowed"),
+        }
+
+        Self {
+            state: [E::Fr::zero(); WIDTH],
+            mode: SpongeMode::Absorb([None; RATE]),
+            domain_strategy: Some(domain_strategy),
+        }
+    }
+
+    pub fn hash<P: HashParams<E, RATE, WIDTH>>(input: &[E::Fr], params: &P, domain_strategy: Option<DomainStrategy>) -> [E::Fr; RATE] {
         // init state
         let mut state = [E::Fr::zero(); WIDTH];
 
-        let domain_strategy = DomainStrategy::CustomFixedLength;
+        let domain_strategy = domain_strategy.unwrap_or(DomainStrategy::CustomFixedLength);
+        match domain_strategy {
+            DomainStrategy::CustomFixedLength | DomainStrategy::FixedLength => (),
+            _ => panic!("only fixed length domain strategies allowed"),
+        }
+
         // specialize capacity
         let capacity_value = domain_strategy
             .compute_capacity::<E>(input.len(), RATE)
@@ -83,9 +97,8 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize>
 
     pub fn absorb_multiple<P: HashParams<E, RATE, WIDTH>>(&mut self, input: &[E::Fr], params: &P) {
         // compute padding values
-        let padding_strategy = DomainStrategy::CustomVariableLength;
-        let padding_values = padding_strategy
-            .generate_padding_values::<E>(input.len(), RATE);
+        let padding_strategy = self.domain_strategy.as_ref().unwrap_or(&DomainStrategy::CustomVariableLength);
+        let padding_values = padding_strategy.generate_padding_values::<E>(input.len(), RATE);
 
         for inp in input.iter().chain(padding_values.iter()) {
             self.absorb(*inp, params)
@@ -133,10 +146,10 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize>
             SpongeMode::Absorb(ref mut buf) => {
                 let unwrapped_buffer_len = buf.iter().filter(|el| el.is_some()).count();
                 // compute padding values
-                let padding_strategy = DomainStrategy::CustomVariableLength;
-                let padding_values = padding_strategy
-                    .generate_padding_values::<E>(unwrapped_buffer_len, RATE);
-                let mut padding_values_it =  padding_values.iter().cloned();
+                let padding_strategy = self.domain_strategy.as_ref().unwrap_or(&DomainStrategy::CustomVariableLength);
+                let padding_values =
+                    padding_strategy.generate_padding_values::<E>(unwrapped_buffer_len, RATE);
+                let mut padding_values_it = padding_values.iter().cloned();
 
                 for b in buf {
                     if b.is_none() {
@@ -158,12 +171,11 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize>
                     for el in buf {
                         if let Some(value) = el {
                             unwrapped_buffer.push(*value);
-                        } else {
-                            // processing buffer was done and we need padding
-                            break;
                         }
                     }
-                    if unwrapped_buffer.is_empty() {
+
+                    if unwrapped_buffer.len() != RATE {
+                        // processing buffer was done and we need padding                        
                         return None;
                     }
 

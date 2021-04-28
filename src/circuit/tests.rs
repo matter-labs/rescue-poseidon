@@ -13,24 +13,36 @@ use franklin_crypto::plonk::circuit::allocated_num::AllocatedNum;
 use crate::circuit::sponge::CircuitGenericSponge;
 use crate::sponge::GenericSponge;
 
+pub(crate) fn test_inputs<E: Engine, CS: ConstraintSystem<E>, const N: usize>(cs: &mut CS, use_allocated: bool) -> ([E::Fr; N], [Num<E>; N]){
+    let rng = &mut init_rng();
+
+    let mut inputs = [E::Fr::zero(); N];
+    let mut inputs_as_num = [Num::Constant(E::Fr::zero()); N];
+    for (i1, i2) in inputs.iter_mut().zip(inputs_as_num.iter_mut()) {
+        *i1 = E::Fr::rand(rng);
+        *i2 = if use_allocated  {
+            Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap())
+        }else{
+            Num::Constant(*i1)
+        }
+    }
+
+    (inputs, inputs_as_num)
+}
+
 fn test_circuit_var_len_generic_hasher<
     E: Engine,
     CS: ConstraintSystem<E>,
     P: HashParams<E, RATE, WIDTH>,
-    R: Rng,
     const RATE: usize,
     const WIDTH: usize,
+    const N: usize,
 >(
     cs: &mut CS,
-    rng: &mut R,
     params: &P,
 ) {
-    let mut inputs = [E::Fr::zero(); 2];
-    let mut inputs_as_num = [Num::Constant(E::Fr::zero()); 2];
-    for (i1, i2) in inputs.iter_mut().zip(inputs_as_num.iter_mut()) {
-        *i1 = E::Fr::rand(rng);
-        *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
-    }
+    
+    let (inputs, inputs_as_num) = test_inputs::<E, CS, N>(cs, true);
 
     let mut hasher = GenericSponge::<_, RATE, WIDTH>::new();
     hasher.absorb_multiple(&inputs, params);
@@ -52,22 +64,16 @@ fn test_circuit_fixed_len_generic_hasher<
     E: Engine,
     CS: ConstraintSystem<E>,
     P: HashParams<E, RATE, WIDTH>,
-    R: Rng,
     const RATE: usize,
     const WIDTH: usize,
+    const N: usize,
 >(
     cs: &mut CS,
-    rng: &mut R,
     params: &P,
 ) {
-    let mut inputs = [E::Fr::zero(); 2];
-    let mut inputs_as_num = [Num::Constant(E::Fr::zero()); 2];
-    for (i1, i2) in inputs.iter_mut().zip(inputs_as_num.iter_mut()) {
-        *i1 = E::Fr::rand(rng);
-        *i2 = Num::Variable(AllocatedNum::alloc(cs, || Ok(*i1)).unwrap());
-    }
-
-    let expected = GenericSponge::<_, RATE, WIDTH>::hash(&inputs, params);
+    let (inputs, inputs_as_num) = test_inputs::<E, CS, N>(cs, true);
+    
+    let expected = GenericSponge::<_, RATE, WIDTH>::hash(&inputs, params, None);
 
     let actual = CircuitGenericSponge::<_, RATE, WIDTH>::hash::<_, P>(cs, &inputs_as_num, &params).unwrap();
 
@@ -83,24 +89,25 @@ fn test_circuit_fixed_len_generic_hasher<
 fn test_circuit_fixed_len_rescue_hasher() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
-
-    let rng = &mut init_rng();
+    const INPUT_LENGTH: usize = 2;
+    
     let cs = &mut init_cs::<Bn256>();
 
     let params = RescueParams::default();
-    test_circuit_fixed_len_generic_hasher::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
+
+    test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
 }
 
 #[test]
 fn test_circuit_fixed_len_poseidon_hasher() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
+    const INPUT_LENGTH: usize = 2;
 
-    let rng = &mut init_rng();
     let cs = &mut init_cs::<Bn256>();
 
     let params = PoseidonParams::default();
-    test_circuit_fixed_len_generic_hasher::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
+    test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
 }
 
 
@@ -108,35 +115,35 @@ fn test_circuit_fixed_len_poseidon_hasher() {
 fn test_circuit_fixed_len_rescue_prime_hasher() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
+    const INPUT_LENGTH: usize = 2;
 
-    let rng = &mut init_rng();
     let cs = &mut init_cs::<Bn256>();
 
     let params = RescuePrimeParams::default();
-    test_circuit_fixed_len_generic_hasher::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
+    test_circuit_fixed_len_generic_hasher::<_, _,  _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
 }
 #[test]
 fn test_circuit_var_len_rescue_hasher() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
+    const INPUT_LENGTH: usize = 2;
 
-    let rng = &mut init_rng();
     let cs = &mut init_cs::<Bn256>();
 
     let params = RescueParams::default();
-    test_circuit_var_len_generic_hasher::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
+    test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
 }
 
 #[test]
 fn test_circuit_var_len_poseidon_hasher() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
+    const INPUT_LENGTH: usize = 2;
 
-    let rng = &mut init_rng();
     let cs = &mut init_cs::<Bn256>();
 
     let params = PoseidonParams::default();
-    test_circuit_var_len_generic_hasher::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
+    test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
 }
 
 
@@ -144,10 +151,10 @@ fn test_circuit_var_len_poseidon_hasher() {
 fn test_circuit_var_len_rescue_prime_hasher() {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
+    const INPUT_LENGTH: usize = 2;
 
-    let rng = &mut init_rng();
     let cs = &mut init_cs::<Bn256>();
 
     let params = RescuePrimeParams::default();
-    test_circuit_var_len_generic_hasher::<_, _, _, _, RATE, WIDTH>(cs, rng, &params);
+    test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
 }

@@ -13,7 +13,7 @@ pub fn poseidon_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2
     const RATE: usize = 2;
 
     let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    generic_hash(&params, input)
+    generic_hash(&params, input, None)
 }
 
 pub(crate) fn poseidon_round_function<

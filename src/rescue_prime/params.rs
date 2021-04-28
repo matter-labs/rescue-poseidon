@@ -8,19 +8,18 @@ use franklin_crypto::bellman::pairing::bn256::Bn256;
 use franklin_crypto::bellman::{Field, PrimeField};
 use num_bigint::{BigInt, BigUint, Sign};
 use num_integer::{ExtendedGcd, Integer};
-use num_traits::{One, Zero};
+use num_traits::{One, ToPrimitive, Zero};
 use std::convert::TryInto;
 use std::ops::{Mul, Sub};
-use crate::traits::{HashParams, HashFamily};
-
-
+use crate::traits::{HashParams, HashFamily, Sbox};
+use crate::common::utils::biguint_to_u64_array;
 #[derive(Clone, Debug)]
 pub struct RescuePrimeParams<E: Engine, const RATE: usize, const WIDTH: usize> {
     pub full_rounds: usize,
     pub round_constants: Vec<[E::Fr; WIDTH]>,
     pub mds_matrix: [[E::Fr; WIDTH]; WIDTH],
-    pub alpha: E::Fr,
-    pub alpha_inv: E::Fr,
+    pub alpha: Sbox,
+    pub alpha_inv: Sbox,
     allow_custom_gate: bool,
 }
 impl<E: Engine, const RATE: usize, const WIDTH: usize> PartialEq for RescuePrimeParams<E, RATE, WIDTH>{
@@ -38,8 +37,8 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
             full_rounds: params.full_rounds,
             round_constants: params.round_constants().try_into().expect("constant array"),
             mds_matrix: *params.mds_matrix(),
-            alpha,
-            alpha_inv,
+            alpha: Sbox::Alpha(alpha),
+            alpha_inv: Sbox::AlphaInverse(alpha_inv),
             allow_custom_gate: true,
         }
     }
@@ -68,12 +67,12 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
         unimplemented!("RescuePrime doesn't have partial rounds.")
     }
 
-    fn alpha(&self) -> E::Fr {
-        self.alpha
+    fn alpha(&self) -> &Sbox {
+        &self.alpha
     }
 
-    fn alpha_inv(&self) -> E::Fr {
-        self.alpha_inv
+    fn alpha_inv(&self) -> &Sbox {
+        &self.alpha_inv
     }
 
     fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH]; WIDTH]]) {
@@ -227,7 +226,7 @@ fn compute_round_constants<E: Engine, const RATE: usize, const WIDTH: usize>(
 }
 
 pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
-) -> (InnerHashParameters<E, RATE, WIDTH>, E::Fr, E::Fr) {
+) -> (InnerHashParameters<E, RATE, WIDTH>, u64, [u64;4]) {
     let security_level = 80;
 
     let mut modulus_bytes = vec![];
@@ -235,8 +234,8 @@ pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
     p_fe.write_le(&mut modulus_bytes).unwrap();
     let p_big = BigInt::from_bytes_le(Sign::Plus, &modulus_bytes);
     let (alpha, alpha_inv) = compute_alpha(&modulus_bytes);
-    let alpha = alpha.to_u32_digits()[0] as usize;
-    let number_of_rounds = get_number_of_rounds(WIDTH, WIDTH-RATE, security_level, alpha);
+    let alpha = alpha.to_u64().expect("u64");
+    let number_of_rounds = get_number_of_rounds(WIDTH, WIDTH-RATE, security_level, alpha as usize);
 
     let mut params = InnerHashParameters::new(security_level, number_of_rounds, 0);
     params.round_constants = compute_round_constants::<E, RATE, WIDTH>(
@@ -248,12 +247,9 @@ pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
 
     params.compute_mds_matrix_for_rescue();
 
-    let alpha_fe = E::Fr::from_str(&alpha.to_string()).unwrap();
-    let mut repr = <E::Fr as PrimeField>::Repr::default();
-    repr.read_le(&alpha_inv.to_bytes_le()[..]).unwrap();
-    let alpha_inv_fe = E::Fr::from_repr(repr).unwrap();
+    let alpha_inv = biguint_to_u64_array(alpha_inv);
 
-    (params, alpha_fe, alpha_inv_fe)
+    (params, alpha, alpha_inv)
 }
 
 #[cfg(test)]

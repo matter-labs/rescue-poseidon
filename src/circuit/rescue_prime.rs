@@ -47,7 +47,7 @@ pub(crate) fn gadget_rescue_prime_round_function<
         // apply sbox
         // each lc will have 3 terms but there will be 1 in first iteration
         // total cost 2 gate per state vars = 6
-        sbox_quintic(cs, state)?;
+        sbox(cs, params.alpha(), state, Some(0..WIDTH), params.can_use_custom_gates())?;
 
         // mul by mds
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
@@ -58,7 +58,7 @@ pub(crate) fn gadget_rescue_prime_round_function<
             s.add_assign_constant(c);
         }
         // apply inverse sbox
-        sbox_quintic_inv::<E, _>(cs, params.alpha_inv(), state)?;
+        sbox(cs, params.alpha_inv(), state, None, params.can_use_custom_gates())?;
 
         // mul by mds
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;

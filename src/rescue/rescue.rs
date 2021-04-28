@@ -1,4 +1,4 @@
-use crate::common::{matrix::mmul_assign, sbox::sbox};
+use crate::common::{matrix::mmul_assign, sbox::{sbox}};
 use crate::sponge::{generic_hash};
 use crate::traits::{HashFamily, HashParams};
 use franklin_crypto::bellman::{Engine, Field};
@@ -13,7 +13,7 @@ pub fn rescue_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2] 
     const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = RescueParams::<E, RATE, WIDTH>::default();
-    generic_hash(&params, input)
+    generic_hash(&params, input, None)
 }
 
 pub(crate) fn rescue_round_function<
@@ -24,7 +24,7 @@ pub(crate) fn rescue_round_function<
 >(
     params: &P,
     state: &mut [E::Fr; WIDTH],
-    input: Option<[E::Fr; RATE]>,
+    _input: Option<[E::Fr; RATE]>,
 ) {
     assert_eq!(params.hash_family(), HashFamily::Rescue, "Incorrect hash family!");
 
