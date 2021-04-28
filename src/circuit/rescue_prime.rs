@@ -1,5 +1,5 @@
-use super::sponge::{circuit_generic_hash};
 use super::sbox::*;
+use super::sponge::circuit_generic_hash_num;
 use super::utils::matrix_vector_product;
 use crate::rescue_prime::params::RescuePrimeParams;
 use crate::traits::{HashFamily, HashParams};
@@ -22,9 +22,8 @@ pub fn gadget_rescue_prime_hash<E: Engine, CS: ConstraintSystem<E>, const L: usi
     const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = RescuePrimeParams::<E, RATE, WIDTH>::default();
-    circuit_generic_hash(cs, input, &params)
+    circuit_generic_hash_num(cs, input, &params)
 }
-
 
 pub(crate) fn gadget_rescue_prime_round_function<
     E: Engine,
@@ -47,7 +46,13 @@ pub(crate) fn gadget_rescue_prime_round_function<
         // apply sbox
         // each lc will have 3 terms but there will be 1 in first iteration
         // total cost 2 gate per state vars = 6
-        sbox(cs, params.alpha(), state, Some(0..WIDTH), params.can_use_custom_gates())?;
+        sbox(
+            cs,
+            params.alpha(),
+            state,
+            Some(0..WIDTH),
+            params.can_use_custom_gates(),
+        )?;
 
         // mul by mds
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
@@ -58,7 +63,13 @@ pub(crate) fn gadget_rescue_prime_round_function<
             s.add_assign_constant(c);
         }
         // apply inverse sbox
-        sbox(cs, params.alpha_inv(), state, None, params.can_use_custom_gates())?;
+        sbox(
+            cs,
+            params.alpha_inv(),
+            state,
+            None,
+            params.can_use_custom_gates(),
+        )?;
 
         // mul by mds
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;

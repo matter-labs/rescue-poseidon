@@ -1,9 +1,11 @@
 use super::sbox::sbox;
 use super::utils::matrix_vector_product;
-use crate::traits::{HashFamily, HashParams};
-use franklin_crypto::{bellman::plonk::better_better_cs::cs::ConstraintSystem};
+use crate::{
+    circuit::sponge::circuit_generic_hash_num,
+    traits::{HashFamily, HashParams},
+};
+use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
 
-use super::sponge::{circuit_generic_hash};
 use crate::rescue::params::RescueParams;
 use franklin_crypto::bellman::SynthesisError;
 use franklin_crypto::{
@@ -23,9 +25,8 @@ pub fn circuit_rescue_hash<E: Engine, CS: ConstraintSystem<E>, const L: usize>(
     const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = RescueParams::<E, RATE, WIDTH>::default();
-    circuit_generic_hash(cs, input, &params)
+    circuit_generic_hash_num(cs, input, &params)
 }
-
 
 pub(crate) fn circuit_rescue_round_function<
     E: Engine,
@@ -51,9 +52,21 @@ pub(crate) fn circuit_rescue_round_function<
     for round in 0..2 * params.number_of_full_rounds() {
         // apply sbox
         if round & 1 == 0 {
-            sbox(cs, params.alpha_inv(), state, Some(0..WIDTH), params.can_use_custom_gates())?;
+            sbox(
+                cs,
+                params.alpha_inv(),
+                state,
+                Some(0..WIDTH),
+                params.can_use_custom_gates(),
+            )?;
         } else {
-            sbox(cs, params.alpha(), state, Some(0..WIDTH), params.can_use_custom_gates())?;
+            sbox(
+                cs,
+                params.alpha(),
+                state,
+                Some(0..WIDTH),
+                params.can_use_custom_gates(),
+            )?;
         }
         // mds row
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;

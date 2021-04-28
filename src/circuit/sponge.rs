@@ -23,14 +23,29 @@ pub fn circuit_generic_hash<
     cs: &mut CS,
     input: &[Num<E>; LENGTH],
     params: &P,
-) -> Result<[Num<E>; RATE], SynthesisError> {
+) -> Result<[LinearCombination<E>; RATE], SynthesisError> {
     CircuitGenericSponge::hash(cs, input, params)
+}
+
+pub fn circuit_generic_hash_num<
+    E: Engine,
+    CS: ConstraintSystem<E>,
+    P: HashParams<E, RATE, WIDTH>,
+    const RATE: usize,
+    const WIDTH: usize,
+    const LENGTH: usize,
+>(
+    cs: &mut CS,
+    input: &[Num<E>; LENGTH],
+    params: &P,
+) -> Result<[Num<E>; RATE], SynthesisError> {
+    CircuitGenericSponge::hash_num(cs, input, params)
 }
 
 #[derive(Clone)]
 enum SpongeMode<E: Engine, const RATE: usize> {
     Absorb([Option<Num<E>>; RATE]),
-    Squeeze([Option<Num<E>>; RATE]),
+    Squeeze([Option<LinearCombination<E>>; RATE]),
 }
 
 #[derive(Clone)]
@@ -57,7 +72,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
         cs: &mut CS,
         input: &[Num<E>],
         params: &P,
-    ) -> Result<[Num<E>; RATE], SynthesisError> {
+    ) -> Result<[LinearCombination<E>; RATE], SynthesisError> {
         // init state
         let mut state: [LinearCombination<E>; WIDTH] = (0..WIDTH)
             .map(|_| LinearCombination::zero())
@@ -98,10 +113,26 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
                 params,
             )?;
         }
+
+        // prepare output
+        let mut output = Vec::with_capacity(RATE);
+        for s in state.iter() {
+            output.push(s.clone());
+        }
+
+        Ok(output.try_into().expect("array"))
+    }
+
+    pub fn hash_num<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
+        cs: &mut CS,
+        input: &[Num<E>],
+        params: &P,
+    ) -> Result<[Num<E>; RATE], SynthesisError> {
+        let result = Self::hash(cs, input, params)?;
         // prepare output
         let mut output = [Num::Constant(E::Fr::zero()); RATE];
-        for (o, s) in output.iter_mut().zip(state.iter()) {
-            *o = s.clone().into_num(cs)?;
+        for (o, s) in output.iter_mut().zip(std::array::IntoIter::new(result)) {
+            *o = s.into_num(cs)?;
         }
 
         Ok(output)
@@ -184,12 +215,12 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
             SpongeMode::Squeeze(_) => (),
         }
     }
-    
+
     pub fn squeeze<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
         &mut self,
         cs: &mut CS,
         params: &P,
-    ) -> Result<Option<Num<E>>, SynthesisError> {
+    ) -> Result<Option<LinearCombination<E>>, SynthesisError> {
         loop {
             match self.mode {
                 SpongeMode::Absorb(ref mut buf) => {
@@ -202,7 +233,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
                     }
 
                     if unwrapped_buffer.len() != RATE {
-                        // processing buffer was done and we need padding                        
+                        // processing buffer was done and we need padding
                         return Ok(None);
                     }
 
@@ -215,14 +246,12 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
                     // permute state
                     absorb(cs, &mut self.state, &all_inputs, params)?;
 
-                    // push values into squeezing buffer for later squeezing
-                    let mut squeeze_buffer = [None; RATE];
-                    for (s, b) in self.state[..RATE].iter().zip(squeeze_buffer.iter_mut()) {
-                        *b = Some(s.clone().into_num(cs)?)
-                    }
-
                     // we are switching squeezing mode so we can ignore to reset absorbing buffer
-                    self.mode = SpongeMode::Squeeze(squeeze_buffer);
+                    let mut squeezed_buffer = vec![];
+                    for s in self.state[..RATE].iter() {
+                        squeezed_buffer.push(Some(s.clone()));
+                    }
+                    self.mode = SpongeMode::Squeeze(squeezed_buffer.try_into().expect(""));
                 }
                 SpongeMode::Squeeze(ref mut buf) => {
                     for el in buf {
@@ -233,6 +262,18 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
                     return Ok(None);
                 }
             };
+        }
+    }
+
+    pub fn squeeze_num<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
+        &mut self,
+        cs: &mut CS,
+        params: &P,
+    ) -> Result<Option<Num<E>>, SynthesisError> {
+        if let Some(value) = self.squeeze(cs, params)? {
+            Ok(Some(value.into_num(cs)?))
+        } else {
+            Ok(None)
         }
     }
 }

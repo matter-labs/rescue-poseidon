@@ -176,7 +176,7 @@ mod test {
         }
     }
     #[test]
-    fn test_sbox_quintic_with_custom_gate() {
+    fn test_sbox_quintic() {
         let cs = &mut init_cs::<Bn256>();
 
         const INPUT_LENGTH: usize = 3;
@@ -184,108 +184,58 @@ mod test {
 
         let alpha = Sbox::Alpha(5);
 
-        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha, NUM_ROUNDS, true, false, false);
-
-        cs.finalize();
-        assert!(cs.is_satisfied());
-
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha.clone(), NUM_ROUNDS, true, false, true); // variable inputs + custom gate
         println!(
-            "quintic sbox takes {} gates with custom gate for {} iteration ",
+            "quintic sbox takes {} gates with custom gate and variable inputs for {} iteration ",
             cs.n(),
             NUM_ROUNDS,
         );
-    }
-    #[test]
-    fn test_sbox_quintic_without_custom_gate() {
-        let cs = &mut init_cs_no_custom_gate::<Bn256>();
-
-        const INPUT_LENGTH: usize = 3;
-        const NUM_ROUNDS: usize = 1;
-
-        let alpha = Sbox::Alpha(5);
-
-        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha, NUM_ROUNDS, false, false, true);
+        let mut end = cs.n();
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha.clone(), NUM_ROUNDS, true, false, false); // constant inputs + custom gate
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha.clone(), NUM_ROUNDS, false, false, true); // variable inputs + no custom gate
+        println!(
+            "quintic sbox takes {} gates without custom gate and variable inputs for {} iteration ",
+            cs.n() - end,
+            NUM_ROUNDS,
+        );
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha, NUM_ROUNDS, false, false, false); // constant inputs + no custom gate        
 
         cs.finalize();
         assert!(cs.is_satisfied());
-
-        println!(
-            "quintic sbox takes {} gates with custom gate for {} iteration ",
-            cs.n(),
-            NUM_ROUNDS,
-        );
     }
+
     #[test]
-    fn test_sbox_quintic_inv_with_custom_gate() {
+    fn test_sbox_quintic_inv() {
         let cs = &mut init_cs::<Bn256>();
 
         const INPUT_LENGTH: usize = 3;
-        const NUM_ROUNDS: usize = 3;
-        let alpha = 5;
-        let alpha_inv = Sbox::AlphaInverse(compute_inverse_alpha::<Bn256, 4>(alpha));
-
-        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha_inv, NUM_ROUNDS, true, false, true);
-
-        cs.finalize();
-        assert!(cs.is_satisfied());
-
-        // println!(
-        //     "quintic inverse sbox takes {} gates with custom gate for {} iteration ",
-        //     cs.n(),
-        //     NUM_ROUNDS,
-        // );
-    }
-    #[test]
-    fn test_sbox_quintic_inv_without_custom_gate() {
-        let cs = &mut init_cs_no_custom_gate::<Bn256>();
-
-        const INPUT_LENGTH: usize = 3;
         const NUM_ROUNDS: usize = 1;
-
         let alpha = 5;
         let alpha_inv = Sbox::AlphaInverse(compute_inverse_alpha::<Bn256, 4>(alpha));
 
-        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha_inv, NUM_ROUNDS, false, false, true);
-
-        cs.finalize();
-        assert!(cs.is_satisfied());
-
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha_inv.clone(), NUM_ROUNDS, true, false, true); // variable inputs + custom gate
         println!(
-            "quintic inverse sbox takes {} gates without custom gate for {} iteration ",
+            "quintic inverse sbox takes {} gates with custom gate and variable inputs for {} iteration ",
             cs.n(),
             NUM_ROUNDS,
         );
+        let mut end = cs.n();
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha_inv.clone(), NUM_ROUNDS, true, false, false); // constant inputs + custom gate        
+        end = cs.n();
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha_inv.clone(), NUM_ROUNDS, false, false, true); // variable inputs + no custom gate
+        println!(
+            "quintic inverse sbox takes {} gates without custom gate and variable inputs for {} iteration ",
+            cs.n() - end,
+            NUM_ROUNDS,
+        );
+        end = cs.n();
+        test_sbox::<_, _, INPUT_LENGTH>(cs, alpha_inv, NUM_ROUNDS, false, false, false); // constant inputs + no custom gate
+        cs.finalize();
+        assert!(cs.is_satisfied());
     }
 
     fn compute_inverse_alpha<E: Engine, const N: usize>(alpha: u64) -> [u64; N] {
         crate::common::utils::compute_gcd::<E, N>(alpha).expect("inverse of alpha")        
     }
 
-    #[test]
-    fn test_apply_5th_power(){
-
-        let cs = &mut init_cs::<Bn256>();
-
-        let (mut state, state_as_nums) = test_inputs::<Bn256, _, 1>(cs, true);
-
-        let element = state[0];
-        let element_allocated = state_as_nums[0];
-
-        println!("elem {} allocated {}", element, element_allocated.get_value().expect("msg"));
-
-        let alpha = 5u64;
-        let alpha_inv = compute_inverse_alpha::<Bn256, 4>(alpha);
-
-        let powered = AllocatedNum::alloc(cs, ||{
-            let result = element.pow(alpha_inv);
-            Ok(result)
-        }).unwrap();
-
-        let _ = apply_5th_power(cs, &powered, Some(element_allocated.get_variable())).expect("apply 5th power");
-
-        cs.finalize();
-
-        assert!(cs.is_satisfied());
-
-    }
 }

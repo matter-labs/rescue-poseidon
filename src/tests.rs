@@ -372,3 +372,27 @@ fn test_excessive_multiple_squeeze() {
     let _ = generic_hasher.squeeze(&params).is_none();
 
 }
+#[test]
+fn test_rate_absorb_and_squeeze() {
+    const WIDTH: usize = 3;
+    const RATE: usize = 2;
+    const LENGTH: usize = RATE;
+
+    let input = test_inputs::<Bn256, LENGTH>();
+
+    let original_params = Bn256RescueParams::new_checked_2_into_1();
+
+    let mut original_rescue = StatefulRescue::<Bn256>::new(&original_params);
+    original_rescue.absorb(&input);
+    
+    let expected = original_rescue.squeeze_out_single();
+
+    let new_params = RescueParams::<Bn256, RATE, WIDTH>::default();
+    let mut generic_hasher = GenericSponge::new();
+    generic_hasher.absorb_multiple(&input, &new_params);
+
+    let actual = generic_hasher.squeeze(&new_params).expect("a squeezed elem");
+
+    assert_eq!(actual, expected);
+
+}

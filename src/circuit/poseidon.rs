@@ -1,15 +1,14 @@
 use super::sbox::sbox;
+use super::sponge::circuit_generic_hash_num;
 use super::utils::{matrix_vector_product, mul_by_sparse_matrix};
-use crate::traits::{HashFamily, HashParams};
 use crate::poseidon::params::PoseidonParams;
+use crate::traits::{HashFamily, HashParams};
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
 use franklin_crypto::bellman::{Field, SynthesisError};
 use franklin_crypto::{
     bellman::Engine,
     plonk::circuit::{allocated_num::Num, linear_combination::LinearCombination},
 };
-use super::sponge::{circuit_generic_hash};
-use std::convert::TryInto;
 
 /// Receives inputs whose length `known` prior(fixed-length).
 /// Also uses custom domain strategy which basically sets value of capacity element to
@@ -23,7 +22,7 @@ pub fn circuit_poseidon_hash<E: Engine, CS: ConstraintSystem<E>, const L: usize>
     const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    circuit_generic_hash(cs, input, &params)
+    circuit_generic_hash_num(cs, input, &params)
 }
 
 pub(crate) fn circuit_poseidon_round_function<
@@ -51,7 +50,6 @@ pub(crate) fn circuit_poseidon_round_function<
 
     let can_use_custom_gate = params.can_use_custom_gates();
 
-
     // first full rounds
     for round in 0..half_of_full_rounds {
         let round_constants = &optimized_round_constants[round];
@@ -61,7 +59,13 @@ pub(crate) fn circuit_poseidon_round_function<
             s.add_assign_constant(*c);
         }
         // non linear sbox
-        sbox(cs,params.alpha(), state, Some(0..WIDTH), can_use_custom_gate)?;
+        sbox(
+            cs,
+            params.alpha(),
+            state,
+            Some(0..WIDTH),
+            can_use_custom_gate,
+        )?;
 
         // mul state by mds
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
@@ -80,19 +84,19 @@ pub(crate) fn circuit_poseidon_round_function<
     constants_for_partial_rounds.push([E::Fr::zero(); WIDTH]);
     // in order to reduce gate number we merge two consecutive iteration
     // which costs 2 gates per each
-    
+
     for (round_constant, sparse_matrix) in constants_for_partial_rounds
         [..constants_for_partial_rounds.len() - 1]
         .chunks(2)
         .zip(sparse_matrixes[..sparse_matrixes.len() - 1].chunks(2))
     {
         // first
-        sbox(cs,params.alpha(), state, Some(0..1), can_use_custom_gate)?;
+        sbox(cs, params.alpha(), state, Some(0..1), can_use_custom_gate)?;
         state[0].add_assign_constant(round_constant[0][0]);
         *state = mul_by_sparse_matrix(state, &sparse_matrix[0]);
 
         // second
-        sbox(cs,params.alpha(), state, Some(0..1), can_use_custom_gate)?;
+        sbox(cs, params.alpha(), state, Some(0..1), can_use_custom_gate)?;
         state[0].add_assign_constant(round_constant[1][0]);
         *state = mul_by_sparse_matrix(state, &sparse_matrix[1]);
         // reduce gate cost: LC -> Num -> LC
@@ -117,7 +121,13 @@ pub(crate) fn circuit_poseidon_round_function<
             s.add_assign_constant(*c);
         }
 
-        sbox(cs,params.alpha(), state, Some(0..WIDTH), can_use_custom_gate)?;
+        sbox(
+            cs,
+            params.alpha(),
+            state,
+            Some(0..WIDTH),
+            can_use_custom_gate,
+        )?;
 
         // mul state by mds
         *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;

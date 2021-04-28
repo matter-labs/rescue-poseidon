@@ -103,6 +103,7 @@ pub(crate) fn compute_params<E: Engine, const RATE: usize, const WIDTH: usize, c
     let rounds_tag = b"Rescue_f";
     let _mds_tag = b"ResM0003";
     let total_number_of_rounds = 2*full_rounds + 1;
+    
     params.compute_round_constants(total_number_of_rounds, rounds_tag);
     params.compute_mds_matrix_for_rescue();
 

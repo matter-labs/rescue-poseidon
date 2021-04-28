@@ -52,7 +52,11 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> GenericSponge<E, RATE
         }
     }
 
-    pub fn hash<P: HashParams<E, RATE, WIDTH>>(input: &[E::Fr], params: &P, domain_strategy: Option<DomainStrategy>) -> [E::Fr; RATE] {
+    pub fn hash<P: HashParams<E, RATE, WIDTH>>(
+        input: &[E::Fr],
+        params: &P,
+        domain_strategy: Option<DomainStrategy>,
+    ) -> [E::Fr; RATE] {
         // init state
         let mut state = [E::Fr::zero(); WIDTH];
 
@@ -97,7 +101,10 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> GenericSponge<E, RATE
 
     pub fn absorb_multiple<P: HashParams<E, RATE, WIDTH>>(&mut self, input: &[E::Fr], params: &P) {
         // compute padding values
-        let padding_strategy = self.domain_strategy.as_ref().unwrap_or(&DomainStrategy::CustomVariableLength);
+        let padding_strategy = self
+            .domain_strategy
+            .as_ref()
+            .unwrap_or(&DomainStrategy::CustomVariableLength);
         let padding_values = padding_strategy.generate_padding_values::<E>(input.len(), RATE);
 
         for inp in input.iter().chain(padding_values.iter()) {
@@ -146,7 +153,10 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> GenericSponge<E, RATE
             SpongeMode::Absorb(ref mut buf) => {
                 let unwrapped_buffer_len = buf.iter().filter(|el| el.is_some()).count();
                 // compute padding values
-                let padding_strategy = self.domain_strategy.as_ref().unwrap_or(&DomainStrategy::CustomVariableLength);
+                let padding_strategy = self
+                    .domain_strategy
+                    .as_ref()
+                    .unwrap_or(&DomainStrategy::CustomVariableLength);
                 let padding_values =
                     padding_strategy.generate_padding_values::<E>(unwrapped_buffer_len, RATE);
                 let mut padding_values_it = padding_values.iter().cloned();
@@ -175,7 +185,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> GenericSponge<E, RATE
                     }
 
                     if unwrapped_buffer.len() != RATE {
-                        // processing buffer was done and we need padding                        
+                        // processing buffer was done and we need padding
                         return None;
                     }
 
