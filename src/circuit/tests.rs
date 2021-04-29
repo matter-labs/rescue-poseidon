@@ -1,17 +1,17 @@
-use crate::{circuit::sponge::CircuitGenericSponge, tests::init_cs_no_custom_gate};
 use crate::poseidon::params::PoseidonParams;
 use crate::rescue::params::RescueParams;
 use crate::rescue_prime::params::RescuePrimeParams;
 use crate::sponge::GenericSponge;
 use crate::tests::init_cs;
 use crate::tests::init_rng;
-use crate::traits::HashParams;
+use crate::traits::{CustomGate, HashParams};
+use crate::{circuit::sponge::CircuitGenericSponge, tests::init_cs_no_custom_gate};
 use franklin_crypto::bellman::pairing::bn256::Bn256;
 use franklin_crypto::bellman::Field;
 use franklin_crypto::plonk::circuit::allocated_num::AllocatedNum;
 use franklin_crypto::plonk::circuit::allocated_num::Num;
 use franklin_crypto::{bellman::plonk::better_better_cs::cs::ConstraintSystem, bellman::Engine};
-use rand::{Rand, Rng};
+use rand::Rand;
 
 pub(crate) fn test_inputs<E: Engine, CS: ConstraintSystem<E>, const N: usize>(
     cs: &mut CS,
@@ -88,15 +88,47 @@ fn test_circuit_fixed_len_rescue_hasher() {
     const RATE: usize = 2;
     const INPUT_LENGTH: usize = 2;
 
-    let cs = &mut init_cs::<Bn256>();
+    {
+        // no custom gate
+        let cs = &mut init_cs::<Bn256>();
+        let params = RescueParams::default();
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of constant length Rescue hash with 2 input(no custom gate): {}",
+            cs.n()
+        );
 
-    let params = RescueParams::default();
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with state width 3
+        let cs = &mut init_cs::<Bn256>();
+        let mut params = RescueParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth3);
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of constant length Rescue hash with 2 input(custom gate width 3): {}",
+            cs.n()
+        );
 
-    test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
-    println!("gate cost {}", cs.n());
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with state width 4
+        let cs = &mut init_cs::<Bn256>();
+        let mut params = RescueParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth4);
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of constant length Rescue hash with 2 input(custom gate width 4): {}",
+            cs.n()
+        );
 
-    cs.finalize();
-    assert!(cs.is_satisfied());  
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
 }
 
 #[test]
@@ -105,14 +137,47 @@ fn test_circuit_fixed_len_poseidon_hasher() {
     const RATE: usize = 2;
     const INPUT_LENGTH: usize = 2;
 
-    let cs = &mut init_cs::<Bn256>();
+    {
+        // no custom gate
+        let cs = &mut init_cs::<Bn256>();
+        let params = PoseidonParams::default();
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of constant length Poseidon hash with 2 input(no custom gate): {}",
+            cs.n()
+        );
 
-    let params = PoseidonParams::default();
-    test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
-    println!("gate cost {}", cs.n());
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with state width 3
+        let cs = &mut init_cs::<Bn256>();
+        let mut params = PoseidonParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth3);
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of constant length Poseidon hash with 2 input(custom gate width 3): {}",
+            cs.n()
+        );
 
-    cs.finalize();
-    assert!(cs.is_satisfied());  
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with state width 4
+        let cs = &mut init_cs::<Bn256>();
+        let mut params = PoseidonParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth4);
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of constant length Poseidon hash with 2 input(custom gate width 4): {}",
+            cs.n()
+        );
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
 }
 
 #[test]
@@ -121,14 +186,47 @@ fn test_circuit_fixed_len_rescue_prime_hasher() {
     const RATE: usize = 2;
     const INPUT_LENGTH: usize = 2;
 
-    let cs = &mut init_cs::<Bn256>();
+    {
+        // no custom gate
+        let cs = &mut init_cs::<Bn256>();
+        let params = RescuePrimeParams::default();
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost constant length RescuePrime hash with 2 input(no custom gate): {}",
+            cs.n()
+        );
 
-    let params = RescuePrimeParams::default();
-    test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
-    println!("gate cost {}", cs.n());
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with state width 3
+        let cs = &mut init_cs::<Bn256>();
+        let mut params = RescuePrimeParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth3);
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of constant length RescuePrime hash with 2 input(custom gate width 3): {}",
+            cs.n()
+        );
 
-    cs.finalize();
-    assert!(cs.is_satisfied());  
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with state width 4
+        let cs = &mut init_cs::<Bn256>();
+        let mut params = RescuePrimeParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth4);
+        test_circuit_fixed_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of constant length RescuePrime hash with 2 input(custom gate width 4): {}",
+            cs.n()
+        );
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
 }
 #[test]
 fn test_circuit_var_len_rescue_hasher() {
@@ -136,14 +234,50 @@ fn test_circuit_var_len_rescue_hasher() {
     const RATE: usize = 2;
     const INPUT_LENGTH: usize = 2;
 
-    let cs = &mut init_cs::<Bn256>();
+    {
+        // no custom gate
+        let cs = &mut init_cs_no_custom_gate::<Bn256>();
 
-    let params = RescueParams::default();
-    test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
-    println!("gate cost {}", cs.n());
+        let params = RescueParams::default();
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length Rescue hash with 2 input (no custom gate): {}",
+            cs.n()
+        );
 
-    cs.finalize();
-    assert!(cs.is_satisfied());    
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with stare width 3
+        let cs = &mut init_cs::<Bn256>();
+
+        let mut params = RescueParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth3);
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length Rescue hash with 2 input(custom gate width 3): {}",
+            cs.n()
+        );
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with stare width 4
+        let cs = &mut init_cs::<Bn256>();
+
+        let mut params = RescueParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth4);
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length Rescue hash with 2 input(custom gate width 4): {}",
+            cs.n()
+        );
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
 }
 
 #[test]
@@ -152,14 +286,50 @@ fn test_circuit_var_len_poseidon_hasher() {
     const RATE: usize = 2;
     const INPUT_LENGTH: usize = 2;
 
-    let cs = &mut init_cs::<Bn256>();
+    {
+        // no custom gate
+        let cs = &mut init_cs_no_custom_gate::<Bn256>();
 
-    let params = PoseidonParams::default();
-    test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
-    println!("gate cost {}", cs.n());
+        let params = PoseidonParams::default();
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length Poseidon hash with 2 input(no custom gate): {}",
+            cs.n()
+        );
 
-    cs.finalize();
-    assert!(cs.is_satisfied());  
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with stare width 3
+        let cs = &mut init_cs::<Bn256>();
+
+        let mut params = PoseidonParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth3);
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length Poseidon hash with 2 input(custom gate width 3): {}",
+            cs.n()
+        );
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with stare width 4
+        let cs = &mut init_cs::<Bn256>();
+
+        let mut params = PoseidonParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth4);
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length Poseidon hash with 2 input(custom gate width 4): {}",
+            cs.n()
+        );
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
 }
 
 #[test]
@@ -168,12 +338,48 @@ fn test_circuit_var_len_rescue_prime_hasher() {
     const RATE: usize = 2;
     const INPUT_LENGTH: usize = 2;
 
-    let cs = &mut init_cs::<Bn256>();
+    {
+        // no custom gate
+        let cs = &mut init_cs_no_custom_gate::<Bn256>();
 
-    let params = RescuePrimeParams::default();
-    test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
-    println!("gate cost {}", cs.n());
+        let params = RescuePrimeParams::default();
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length RescuePrime hash with 2 input(no custom gate): {}",
+            cs.n()
+        );
 
-    cs.finalize();
-    assert!(cs.is_satisfied());  
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with stare width 3
+        let cs = &mut init_cs::<Bn256>();
+
+        let mut params = RescuePrimeParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth3);
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length RescuePrime hash with 2 input(custom gate width 3): {}",
+            cs.n()
+        );
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
+    {
+        // custom gate with stare width 4
+        let cs = &mut init_cs::<Bn256>();
+
+        let mut params = RescuePrimeParams::default();
+        params.use_custom_gate(CustomGate::QuinticWidth4);
+        test_circuit_var_len_generic_hasher::<_, _, _, RATE, WIDTH, INPUT_LENGTH>(cs, &params);
+        println!(
+            "CS cost of variable length RescuePrime hash with 2 input(custom gate width 4): {}",
+            cs.n()
+        );
+
+        cs.finalize();
+        assert!(cs.is_satisfied());
+    }
 }

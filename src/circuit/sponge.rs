@@ -116,7 +116,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
 
         // prepare output
         let mut output = Vec::with_capacity(RATE);
-        for s in state.iter() {
+        for s in state[..RATE].iter() {
             output.push(s.clone());
         }
 
