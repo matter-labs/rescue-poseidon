@@ -11,16 +11,16 @@ use num_integer::{ExtendedGcd, Integer};
 use num_traits::{One, ToPrimitive, Zero};
 use std::convert::TryInto;
 use std::ops::{Mul, Sub};
-use crate::traits::{HashParams, HashFamily, Sbox};
+use crate::traits::{HashParams, HashFamily, Sbox, CustomGate};
 use crate::common::utils::biguint_to_u64_array;
 #[derive(Clone, Debug)]
 pub struct RescuePrimeParams<E: Engine, const RATE: usize, const WIDTH: usize> {
-    pub full_rounds: usize,
-    pub round_constants: Vec<[E::Fr; WIDTH]>,
-    pub mds_matrix: [[E::Fr; WIDTH]; WIDTH],
-    pub alpha: Sbox,
-    pub alpha_inv: Sbox,
-    allow_custom_gate: bool,
+    pub(crate) full_rounds: usize,
+    pub(crate) round_constants: Vec<[E::Fr; WIDTH]>,
+    pub(crate) mds_matrix: [[E::Fr; WIDTH]; WIDTH],
+    pub(crate) alpha: Sbox,
+    pub(crate) alpha_inv: Sbox,
+    pub(crate) custom_gate: CustomGate,
 }
 impl<E: Engine, const RATE: usize, const WIDTH: usize> PartialEq for RescuePrimeParams<E, RATE, WIDTH>{
     fn eq(&self, other: &Self) -> bool {
@@ -39,7 +39,7 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
             mds_matrix: *params.mds_matrix(),
             alpha: Sbox::Alpha(alpha),
             alpha_inv: Sbox::AlphaInverse(alpha_inv),
-            allow_custom_gate: true,
+            custom_gate: CustomGate::None,
         }
     }
 }
@@ -83,12 +83,12 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
         unimplemented!("RescuePrime doesn't use optimized round constants")
     }
 
-    fn can_use_custom_gates(&self) -> bool {
-        true
+    fn custom_gate(&self) -> CustomGate {
+        self.custom_gate
     }
 
-    fn set_allow_custom_gate(&mut self, allow: bool) {
-        self.allow_custom_gate = allow;    
+    fn use_custom_gate(&mut self, gate: CustomGate) {
+        self.custom_gate = gate;    
     }
     
 }

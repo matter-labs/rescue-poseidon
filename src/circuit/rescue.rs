@@ -57,7 +57,7 @@ pub(crate) fn circuit_rescue_round_function<
                 params.alpha_inv(),
                 state,
                 Some(0..WIDTH),
-                params.can_use_custom_gates(),
+                params.custom_gate(),
             )?;
         } else {
             sbox(
@@ -65,7 +65,7 @@ pub(crate) fn circuit_rescue_round_function<
                 params.alpha(),
                 state,
                 Some(0..WIDTH),
-                params.can_use_custom_gates(),
+                params.custom_gate(),
             )?;
         }
         // mds row

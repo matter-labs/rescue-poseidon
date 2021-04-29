@@ -1,7 +1,7 @@
-use franklin_crypto::bellman::{Engine, PrimeField};
+use franklin_crypto::bellman::{Engine};
 
 use crate::common::params::InnerHashParameters;
-use crate::traits::{HashParams, HashFamily, Sbox};
+use crate::traits::{HashParams, HashFamily, Sbox, CustomGate};
 use std::convert::TryInto;
 
 
@@ -12,7 +12,7 @@ pub struct RescueParams<E: Engine, const RATE: usize, const WIDTH: usize> {
     pub(crate) mds_matrix: [[E::Fr; WIDTH]; WIDTH],
     pub(crate) alpha: Sbox,
     pub(crate) alpha_inv: Sbox,
-    pub(crate) allow_custom_gate: bool,
+    pub(crate) custom_gate: CustomGate,
 }
 
 impl<E: Engine, const RATE: usize, const WIDTH: usize> PartialEq for RescueParams<E, RATE, WIDTH>{
@@ -35,7 +35,7 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
             mds_matrix: *params.mds_matrix(),
             alpha: Sbox::Alpha(alpha),
             alpha_inv: Sbox::AlphaInverse(alpha_inv),
-            allow_custom_gate: true,
+            custom_gate: CustomGate::None,
         }
     }
 }
@@ -80,12 +80,12 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
         unimplemented!("Rescue doesn't use optimized round constants")
     }
 
-    fn can_use_custom_gates(&self) -> bool {
-        true
+    fn custom_gate(&self) -> CustomGate {
+        self.custom_gate
     }
     
-    fn set_allow_custom_gate(&mut self, allow: bool) {
-        self.allow_custom_gate = allow;    
+    fn use_custom_gate(&mut self, custom_gate: CustomGate) {
+        self.custom_gate = custom_gate;    
     }
 }
 

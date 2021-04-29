@@ -48,8 +48,6 @@ pub(crate) fn circuit_poseidon_round_function<
     let (m_prime, sparse_matrixes) = &params.optimized_mds_matrixes();
     let optimized_round_constants = &params.optimized_round_constants();
 
-    let can_use_custom_gate = params.can_use_custom_gates();
-
     // first full rounds
     for round in 0..half_of_full_rounds {
         let round_constants = &optimized_round_constants[round];
@@ -64,7 +62,7 @@ pub(crate) fn circuit_poseidon_round_function<
             params.alpha(),
             state,
             Some(0..WIDTH),
-            can_use_custom_gate,
+            params.custom_gate(),
         )?;
 
         // mul state by mds
@@ -91,12 +89,12 @@ pub(crate) fn circuit_poseidon_round_function<
         .zip(sparse_matrixes[..sparse_matrixes.len() - 1].chunks(2))
     {
         // first
-        sbox(cs, params.alpha(), state, Some(0..1), can_use_custom_gate)?;
+        sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
         state[0].add_assign_constant(round_constant[0][0]);
         *state = mul_by_sparse_matrix(state, &sparse_matrix[0]);
 
         // second
-        sbox(cs, params.alpha(), state, Some(0..1), can_use_custom_gate)?;
+        sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
         state[0].add_assign_constant(round_constant[1][0]);
         *state = mul_by_sparse_matrix(state, &sparse_matrix[1]);
         // reduce gate cost: LC -> Num -> LC
@@ -106,7 +104,7 @@ pub(crate) fn circuit_poseidon_round_function<
         }
     }
 
-    sbox(cs, params.alpha(), state, Some(0..1), can_use_custom_gate)?;
+    sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
     state[0].add_assign_constant(constants_for_partial_rounds.last().unwrap()[0]);
     *state = mul_by_sparse_matrix(state, &sparse_matrixes.last().unwrap());
 
@@ -126,7 +124,7 @@ pub(crate) fn circuit_poseidon_round_function<
             params.alpha(),
             state,
             Some(0..WIDTH),
-            can_use_custom_gate,
+            params.custom_gate(),
         )?;
 
         // mul state by mds

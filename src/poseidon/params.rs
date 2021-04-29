@@ -2,18 +2,18 @@ use franklin_crypto::bellman::{Engine, Field, PrimeField};
 
 use crate::common::matrix::{compute_optimized_matrixes, mmul_assign, try_inverse};
 use crate::common::params::InnerHashParameters;
-use crate::traits::{HashFamily, HashParams, Sbox};
+use crate::traits::{CustomGate, HashFamily, HashParams, Sbox};
 
 #[derive(Clone, Debug)]
 pub struct PoseidonParams<E: Engine, const RATE: usize, const WIDTH: usize> {
-    state: [E::Fr; WIDTH],
-    mds_matrix: [[E::Fr; WIDTH]; WIDTH],
-    optimized_round_constants: Vec<[E::Fr; WIDTH]>,
-    optimized_mds_matrixes: ([[E::Fr; WIDTH]; WIDTH], Vec<[[E::Fr; WIDTH]; WIDTH]>),
-    alpha: Sbox,
-    full_rounds: usize,
-    partial_rounds: usize,
-    allow_custom_gate: bool,
+    pub(crate) state: [E::Fr; WIDTH],
+    pub(crate) mds_matrix: [[E::Fr; WIDTH]; WIDTH],
+    pub(crate) optimized_round_constants: Vec<[E::Fr; WIDTH]>,
+    pub(crate) optimized_mds_matrixes: ([[E::Fr; WIDTH]; WIDTH], Vec<[[E::Fr; WIDTH]; WIDTH]>),
+    pub(crate) alpha: Sbox,
+    pub(crate) full_rounds: usize,
+    pub(crate) partial_rounds: usize,
+    pub(crate) custom_gate: CustomGate,
 }
 
 impl<E: Engine, const RATE: usize, const WIDTH: usize> PartialEq
@@ -36,7 +36,7 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> Default for PoseidonParam
             optimized_mds_matrixes,
             full_rounds: params.full_rounds,
             partial_rounds: params.partial_rounds,
-            allow_custom_gate: true,
+            custom_gate: CustomGate::None,
         }
     }
 }
@@ -83,12 +83,12 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
         )
     }
 
-    fn can_use_custom_gates(&self) -> bool {
-        true
+    fn custom_gate(&self) -> CustomGate {
+        self.custom_gate
     }
 
-    fn set_allow_custom_gate(&mut self, allow: bool) {
-        self.allow_custom_gate = allow;
+    fn use_custom_gate(&mut self, custom_gate: CustomGate) {
+        self.custom_gate = custom_gate;
     }
 }
 
@@ -127,7 +127,10 @@ pub(crate) fn poseidon_light_params<E: Engine, const RATE: usize, const WIDTH: u
     );
 
     const SUBDIM: usize = 2; // TODO:
-    assert!(WIDTH - SUBDIM == 1, "only dim 2 and dim 3 matrixes are allowed for now.");
+    assert!(
+        WIDTH - SUBDIM == 1,
+        "only dim 2 and dim 3 matrixes are allowed for now."
+    );
     let optimized_matrixes =
         compute_optimized_matrixes::<E, WIDTH, SUBDIM>(params.partial_rounds, &params.mds_matrix);
     (params, alpha, optimized_constants, optimized_matrixes)

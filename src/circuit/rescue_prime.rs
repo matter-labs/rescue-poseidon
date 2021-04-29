@@ -51,7 +51,7 @@ pub(crate) fn gadget_rescue_prime_round_function<
             params.alpha(),
             state,
             Some(0..WIDTH),
-            params.can_use_custom_gates(),
+            params.custom_gate(),
         )?;
 
         // mul by mds
@@ -68,7 +68,7 @@ pub(crate) fn gadget_rescue_prime_round_function<
             params.alpha_inv(),
             state,
             None,
-            params.can_use_custom_gates(),
+            params.custom_gate(),
         )?;
 
         // mul by mds
