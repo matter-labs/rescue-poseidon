@@ -25,23 +25,24 @@ pub(crate) fn sbox<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize>(
     cs: &mut CS,
     power: &Sbox,
     prev_state: &mut [LinearCombination<E>; WIDTH],
-    state_range: Option<std::ops::Range<usize>>,
+    use_partial_state: Option<std::ops::Range<usize>>,
     custom_gate: CustomGate,
 ) -> Result<(), SynthesisError> {
+    let state_range = if let Some(partial_range) = use_partial_state{
+        partial_range
+    }else{
+        0..WIDTH
+    };
+
     match power {
         Sbox::Alpha(alpha) => sbox_alpha(
             cs,
             alpha,
             prev_state,
-            state_range.expect("full state not partial"),
+            state_range,
             custom_gate,
         ),
-        Sbox::AlphaInverse(alpha_inv) => {
-            // TODO
-            // assert!(
-            //     state_range.is_none(),
-            //     "partial sbox doesn't supported in inverse direction"
-            // );
+        Sbox::AlphaInverse(alpha_inv) => {           
             sbox_alpha_inv(cs, alpha_inv, prev_state, custom_gate)
         }
     }
@@ -231,8 +232,6 @@ mod test {
 
         const INPUT_LENGTH: usize = 3;
         const NUM_ROUNDS: usize = 1;
-
-        let alpha = Sbox::Alpha(5);
 
         run_test_sbox::<_, _, INPUT_LENGTH>(
             cs,

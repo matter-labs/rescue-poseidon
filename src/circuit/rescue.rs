@@ -56,7 +56,7 @@ pub(crate) fn circuit_rescue_round_function<
                 cs,
                 params.alpha_inv(),
                 state,
-                Some(0..WIDTH),
+                None,
                 params.custom_gate(),
             )?;
         } else {
@@ -64,7 +64,7 @@ pub(crate) fn circuit_rescue_round_function<
                 cs,
                 params.alpha(),
                 state,
-                Some(0..WIDTH),
+                None,
                 params.custom_gate(),
             )?;
         }

@@ -50,7 +50,7 @@ pub(crate) fn gadget_rescue_prime_round_function<
             cs,
             params.alpha(),
             state,
-            Some(0..WIDTH),
+            None,
             params.custom_gate(),
         )?;
 
