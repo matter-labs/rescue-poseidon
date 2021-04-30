@@ -78,7 +78,7 @@ fn test_circuit_fixed_len_generic_hasher<
     let expected = GenericSponge::<_, RATE, WIDTH>::hash(&inputs, params, None);
 
     let actual =
-        CircuitGenericSponge::<_, RATE, WIDTH>::hash::<_, P>(cs, &inputs_as_num, &params).unwrap();
+        CircuitGenericSponge::<_, RATE, WIDTH>::hash::<_, P>(cs, &inputs_as_num, &params, None).unwrap();
     assert_eq!(actual[0].get_value().unwrap(), expected[0]);
 }
 

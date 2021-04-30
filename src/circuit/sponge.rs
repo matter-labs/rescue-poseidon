@@ -23,8 +23,9 @@ pub fn circuit_generic_hash<
     cs: &mut CS,
     input: &[Num<E>; LENGTH],
     params: &P,
+    domain_strategy: Option<DomainStrategy>,
 ) -> Result<[LinearCombination<E>; RATE], SynthesisError> {
-    CircuitGenericSponge::hash(cs, input, params)
+    CircuitGenericSponge::hash(cs, input, params, domain_strategy)
 }
 
 pub fn circuit_generic_hash_num<
@@ -38,8 +39,9 @@ pub fn circuit_generic_hash_num<
     cs: &mut CS,
     input: &[Num<E>; LENGTH],
     params: &P,
+    domain_strategy: Option<DomainStrategy>,
 ) -> Result<[Num<E>; RATE], SynthesisError> {
-    CircuitGenericSponge::hash_num(cs, input, params)
+    CircuitGenericSponge::hash_num(cs, input, params, domain_strategy)
 }
 
 #[derive(Clone)]
@@ -52,19 +54,28 @@ enum SpongeMode<E: Engine, const RATE: usize> {
 pub struct CircuitGenericSponge<E: Engine, const RATE: usize, const WIDTH: usize> {
     state: [LinearCombination<E>; WIDTH],
     mode: SpongeMode<E, RATE>,
+    domain_strategy: DomainStrategy,
 }
 
 impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<E, RATE, WIDTH> {
     pub fn new() -> Self {
+        Self::new_from_domain_strategy(DomainStrategy::CustomVariableLength)
+    }
+
+    pub fn new_from_domain_strategy(domain_strategy: DomainStrategy) -> Self {
+        match domain_strategy {
+            DomainStrategy::CustomVariableLength | DomainStrategy::VariableLength => (),
+            _ => panic!("only variable length domain strategies allowed"),
+        }
         let state = (0..WIDTH)
             .map(|_| LinearCombination::zero())
             .collect::<Vec<_>>()
             .try_into()
             .expect("constant array");
-
         Self {
             state,
             mode: SpongeMode::Absorb([None; RATE]),
+            domain_strategy: domain_strategy,
         }
     }
 
@@ -72,7 +83,13 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
         cs: &mut CS,
         input: &[Num<E>],
         params: &P,
+        domain_strategy: Option<DomainStrategy>,
     ) -> Result<[LinearCombination<E>; RATE], SynthesisError> {
+        let domain_strategy = domain_strategy.unwrap_or(DomainStrategy::CustomFixedLength);
+        match domain_strategy {
+            DomainStrategy::CustomFixedLength | DomainStrategy::FixedLength => (),
+            _ => panic!("only fixed length domain strategies allowed"),
+        }
         // init state
         let mut state: [LinearCombination<E>; WIDTH] = (0..WIDTH)
             .map(|_| LinearCombination::zero())
@@ -127,8 +144,9 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
         cs: &mut CS,
         input: &[Num<E>],
         params: &P,
+        domain_strategy: Option<DomainStrategy>
     ) -> Result<[Num<E>; RATE], SynthesisError> {
-        let result = Self::hash(cs, input, params)?;
+        let result = Self::hash(cs, input, params, domain_strategy)?;
         // prepare output
         let mut output = [Num::Constant(E::Fr::zero()); RATE];
         for (o, s) in output.iter_mut().zip(std::array::IntoIter::new(result)) {

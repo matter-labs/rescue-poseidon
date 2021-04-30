@@ -1,7 +1,7 @@
 use super::sbox::sbox;
 use super::sponge::circuit_generic_hash_num;
 use super::utils::{matrix_vector_product, mul_by_sparse_matrix};
-use crate::poseidon::params::PoseidonParams;
+use crate::{DomainStrategy, poseidon::params::PoseidonParams};
 use crate::traits::{HashFamily, HashParams};
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
 use franklin_crypto::bellman::{Field, SynthesisError};
@@ -18,11 +18,12 @@ use franklin_crypto::{
 pub fn circuit_poseidon_hash<E: Engine, CS: ConstraintSystem<E>, const L: usize>(
     cs: &mut CS,
     input: &[Num<E>; L],
+    domain_strategy: Option<DomainStrategy>,
 ) -> Result<[Num<E>; 2], SynthesisError> {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    circuit_generic_hash_num(cs, input, &params)
+    circuit_generic_hash_num(cs, input, &params, domain_strategy)
 }
 
 pub(crate) fn circuit_poseidon_round_function<
