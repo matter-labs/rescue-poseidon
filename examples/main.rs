@@ -1,6 +1,9 @@
-use franklin_crypto::bellman::bn256::{Bn256, Fr};
 use franklin_crypto::bellman::Engine;
 use franklin_crypto::bellman::Field;
+use franklin_crypto::bellman::{
+    bn256::{Bn256, Fr},
+    SynthesisError,
+};
 use franklin_crypto::plonk::circuit::allocated_num::{AllocatedNum, Num};
 use franklin_crypto::{
     bellman::plonk::better_better_cs::cs::{TrivialAssembly, Width4MainGateWithDNext},
@@ -11,7 +14,7 @@ use rescue_poseidon::PoseidonParams;
 use rescue_poseidon::RescueParams;
 use rescue_poseidon::RescuePrimeParams;
 #[allow(dead_code)]
-use rescue_poseidon::{generic_hash, CircuitGenericSponge, GenericSponge, DomainStrategy};
+use rescue_poseidon::{generic_hash, CircuitGenericSponge, DomainStrategy, GenericSponge};
 use std::convert::TryInto;
 
 pub(crate) fn init_rng() -> XorShiftRng {
@@ -37,15 +40,14 @@ fn test_input<E: Engine, const L: usize>() -> ([E::Fr; L], [Num<E>; L]) {
 }
 
 fn main() {
+    run_simple_fixed_len_rescue_hash();
     run_generic_hash_fixed_length::<Bn256>();
     run_generic_hash_var_length::<Bn256>();
-    run_circuit_generic_hash_fixed_length::<Bn256>();
-    run_circuit_generic_hash_var_length::<Bn256>();
+    run_circuit_generic_hash_fixed_length::<Bn256>().ok();
+    run_circuit_generic_hash_var_length::<Bn256>().ok();
 }
 
 fn run_simple_fixed_len_rescue_hash() {
-    use franklin_crypto::bellman::bn256::Fr;
-    use franklin_crypto::bellman::Field;
     use rescue_poseidon::rescue_hash;
 
     const INPUT_LENGTH: usize = 2;
@@ -74,7 +76,11 @@ fn run_generic_hash_fixed_length<E: Engine>() {
     // now, hash with rescue prime params
     // in this case we use original domain strategy used in RescuePrime paper
     let rescue_prime_params = RescuePrimeParams::<Bn256, RATE, WIDTH>::default();
-    let result = generic_hash(&rescue_prime_params, &input, Some(DomainStrategy::FixedLength));
+    let result = generic_hash(
+        &rescue_prime_params,
+        &input,
+        Some(DomainStrategy::FixedLength),
+    );
     assert_eq!(result.len(), RATE);
 }
 
@@ -89,68 +95,69 @@ fn run_generic_hash_var_length<E: Engine>() {
     let rescue_params = RescueParams::<Bn256, RATE, WIDTH>::default();
     let mut rescue_hasher = GenericSponge::new();
     rescue_hasher.absorb_multiple(&input, &rescue_params);
-    let rescue_result = rescue_hasher.squeeze(&rescue_params).expect("squeezed eleme");
+    let _ = rescue_hasher
+        .squeeze(&rescue_params)
+        .expect("squeezed eleme");
 
     // go with poseidon
     let poseidon_params = PoseidonParams::<Bn256, RATE, WIDTH>::default();
     let mut poseidon_hasher = GenericSponge::new();
     poseidon_hasher.absorb_multiple(&input, &poseidon_params);
-    let poseidon_result = poseidon_hasher.squeeze(&poseidon_params).expect("squeezed eleme");
+    let _ = poseidon_hasher
+        .squeeze(&poseidon_params)
+        .expect("squeezed eleme");
 }
 
-fn run_circuit_generic_hash_fixed_length<E: Engine>() {
+fn run_circuit_generic_hash_fixed_length<E: Engine>() -> Result<(), SynthesisError> {
     const RATE: usize = 2;
     const WIDTH: usize = 3;
     const INPUT_LENGTH: usize = 2;
-    let rng = &mut init_rng();
-    let cs = &mut init_cs::<Bn256>();
+    let cs = &mut init_cs();
 
-    let (input, input_as_nums) = test_input::<E, INPUT_LENGTH>();
+    let (_, input) = test_input::<E, INPUT_LENGTH>();
     // we can send all type of params so lets start with rescue
     let rescue_params = RescueParams::<E, RATE, WIDTH>::default();
-    let result = GenericSponge::hash(&input, &rescue_params, None);
+    let result = CircuitGenericSponge::hash(cs, &input, &rescue_params, None)?;
     assert_eq!(result.len(), RATE);
 
     // now, hash with poseidon params
     let poseidon_params = PoseidonParams::<E, RATE, WIDTH>::default();
-    let result = GenericSponge::hash(&input, &poseidon_params, None);
+    let result = CircuitGenericSponge::hash(cs, &input, &poseidon_params, None)?;
     assert_eq!(result.len(), RATE);
 
     // now, hash with rescue prime params
     let rescue_prime_params = RescuePrimeParams::<E, RATE, WIDTH>::default();
-    let result = GenericSponge::hash(&input, &rescue_prime_params, None);
+    let result = CircuitGenericSponge::hash(cs, &input, &rescue_prime_params, None)?;
     assert_eq!(result.len(), RATE);
+
+    Ok(())
 }
 
-fn run_circuit_generic_hash_var_length<E: Engine>() {
+fn run_circuit_generic_hash_var_length<E: Engine>() -> Result<(), SynthesisError> {
     const RATE: usize = 2;
     const WIDTH: usize = 3;
     const INPUT_LENGTH: usize = 2;
-    let rng = &mut init_rng();
-    let cs = &mut init_cs::<Bn256>();
+    let cs = &mut init_cs();
 
-    let (input, input_as_nums) = test_input::<E, INPUT_LENGTH>();
+    let (_, input) = test_input::<E, INPUT_LENGTH>();
     // we can send all type of params so lets start with rescue
     let rescue_params = RescueParams::<E, RATE, WIDTH>::default();
-    let mut rescue_hasher = GenericSponge::new();
-    for inp in input.iter() {
-        rescue_hasher.absorb(*inp, &rescue_params);
-    }
-    let _ = rescue_hasher.squeeze(&rescue_params).unwrap();
+    let mut rescue_hasher = CircuitGenericSponge::new();
+    rescue_hasher.absorb_multiple(cs, &input, &rescue_params)?;
+    let _ = rescue_hasher.squeeze(cs, &rescue_params)?;
 
     // now, hash with poseidon params
     let poseidon_params = PoseidonParams::<E, RATE, WIDTH>::default();
-    let mut poseidon_hasher = GenericSponge::new();
-    for inp in input.iter() {
-        poseidon_hasher.absorb(*inp, &poseidon_params);
-    }
-    let _ = poseidon_hasher.squeeze(&poseidon_params).unwrap();
+    let mut poseidon_hasher = CircuitGenericSponge::new();
+    poseidon_hasher.absorb_multiple(cs, &input, &rescue_params)?;
+    let _ = poseidon_hasher.squeeze(cs, &poseidon_params)?;
 
     // now, hash with rescue prime params
     let rescue_prime_params = RescuePrimeParams::<E, RATE, WIDTH>::default();
-    let mut rescue_prime_hasher = GenericSponge::new();
-    for inp in input.iter() {
-        rescue_prime_hasher.absorb(*inp, &rescue_prime_params);
-    }
-    let _ = rescue_prime_hasher.squeeze(&rescue_prime_params).unwrap();
+    let mut rescue_prime_hasher = CircuitGenericSponge::new();
+    rescue_prime_hasher.absorb_multiple(cs, &input, &rescue_params)?;
+    // lets output some num instead of linear-combination
+    let _ = rescue_prime_hasher.squeeze_num(cs, &rescue_prime_params)?;
+
+    Ok(())
 }

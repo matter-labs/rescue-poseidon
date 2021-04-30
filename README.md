@@ -13,11 +13,11 @@ rescue_poseidon = 0.1
     use franklin_crypto::bellman::Field;
     use rescue_poseidon::rescue_hash;
 
-    const INPUT_LENGTH: usize = 2;
-    let input = [Fr::one(); INPUT_LENGTH]; // dummy input
+    const L: usize = 2;
+    let input = [Fr::one(); L]; // dummy input
 
     // fixed length rescue hash
-    let result = rescue_hash::<Bn256, INPUT_LENGTH>(&input);
+    let result = rescue_hash::<Bn256, L>(&input);
     assert_eq!(result.len(), 2);
 ```
 More examples can be found in `examples` folder.
