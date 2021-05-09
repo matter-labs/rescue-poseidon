@@ -1,6 +1,6 @@
 use super::sbox::*;
 use super::sponge::circuit_generic_hash_num;
-use super::utils::matrix_vector_product;
+use super::matrix::matrix_vector_product;
 use crate::{DomainStrategy, rescue_prime::params::RescuePrimeParams};
 use crate::traits::{HashFamily, HashParams};
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
@@ -56,7 +56,7 @@ pub(crate) fn gadget_rescue_prime_round_function<
         )?;
 
         // mul by mds
-        *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
+        matrix_vector_product(&params.mds_matrix(), state)?;
 
         // round constants
         let constants = params.constants_of_round(round);
@@ -73,7 +73,7 @@ pub(crate) fn gadget_rescue_prime_round_function<
         )?;
 
         // mul by mds
-        *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
+        matrix_vector_product(&params.mds_matrix(), state)?;
 
         // round constants
         let constants = params.constants_of_round(round + 1);

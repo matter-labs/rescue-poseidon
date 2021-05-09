@@ -2,7 +2,7 @@ use franklin_crypto::bellman::{Engine, Field};
 use std::ops::Range;
 
 // We can reduce cost of each partial round by using an optimization from
-// original paper. Appendix-B explains details.
+// original Poseidon paper. Appendix-B explains details.
 pub(crate) fn compute_optimized_matrixes<E: Engine, const DIM: usize, const SUBDIM: usize>(
     number_of_rounds: usize,
     original_mds: &[[E::Fr; DIM]; DIM],
@@ -33,7 +33,7 @@ pub(crate) fn compute_optimized_matrixes<E: Engine, const DIM: usize, const SUBD
             let actual = multiply::<E, DIM>(&m_prime, &sparse_matrix);
             assert_eq!(matrix, actual);
         }
-        // sparse_matrixes.push(transpose::<E, DIM>(&sparse_matrix));
+
         sparse_matrixes[round] = transpose::<E, DIM>(&sparse_matrix);
         matrix = multiply::<E, DIM>(&original_mds, &m_prime);
     }
@@ -135,6 +135,7 @@ pub(crate) fn transpose<E: Engine, const DIM: usize>(
 }
 
 // Computes inverse of 2-d or 3-d matrixes.
+// We need inverse of matrix for optimized poseidon 
 pub(crate) fn try_inverse<E: Engine, const DIM: usize>(
     m: &[[E::Fr; DIM]; DIM],
 ) -> Option<[[E::Fr; DIM]; DIM]> {
@@ -381,7 +382,6 @@ fn try_inverse_dim_3<E: Engine, const DIM: usize>(
 
     Some(result)
 }
-
 
 // Computes identity of given dimension.
 fn identity<E: Engine, const DIM: usize>() -> [[E::Fr; DIM]; DIM] {
