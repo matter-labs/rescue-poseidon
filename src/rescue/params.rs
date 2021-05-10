@@ -91,7 +91,8 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
 
 
 pub(crate) fn compute_params<E: Engine, const RATE: usize, const WIDTH: usize, const N: usize>() -> (InnerHashParameters<E, RATE, WIDTH>, u64, [u64; N]) {
-    let full_rounds = 22;
+    // let full_rounds = 22;
+    let full_rounds = 8;
     let security_level = 126;
 
     let mut params = InnerHashParameters::new(        
