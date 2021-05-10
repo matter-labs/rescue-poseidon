@@ -1,6 +1,6 @@
 use super::sbox::sbox;
 use super::sponge::circuit_generic_hash_num;
-use super::utils::{matrix_vector_product, mul_by_sparse_matrix};
+use super::matrix::{matrix_vector_product, mul_by_sparse_matrix};
 use crate::{DomainStrategy, poseidon::params::PoseidonParams};
 use crate::traits::{HashFamily, HashParams};
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
@@ -67,7 +67,7 @@ pub(crate) fn circuit_poseidon_round_function<
         )?;
 
         // mul state by mds
-        *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
+        matrix_vector_product(&params.mds_matrix(), state)?;
     }
 
     state
@@ -75,7 +75,7 @@ pub(crate) fn circuit_poseidon_round_function<
         .zip(optimized_round_constants[half_of_full_rounds].iter())
         .for_each(|(a, b)| a.add_assign_constant(*b));
 
-    *state = matrix_vector_product(cs, &m_prime, state)?;
+    matrix_vector_product(&m_prime, state)?;
 
     let mut constants_for_partial_rounds = optimized_round_constants
         [half_of_full_rounds + 1..half_of_full_rounds + params.number_of_partial_rounds()]
@@ -92,12 +92,12 @@ pub(crate) fn circuit_poseidon_round_function<
         // first
         sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
         state[0].add_assign_constant(round_constant[0][0]);
-        *state = mul_by_sparse_matrix(state, &sparse_matrix[0]);
+        mul_by_sparse_matrix(&sparse_matrix[0], state);
 
         // second
         sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
         state[0].add_assign_constant(round_constant[1][0]);
-        *state = mul_by_sparse_matrix(state, &sparse_matrix[1]);
+        mul_by_sparse_matrix(&sparse_matrix[1], state);
         // reduce gate cost: LC -> Num -> LC
         for state in state.iter_mut() {
             let num = state.clone().into_num(cs).expect("a num");
@@ -107,7 +107,7 @@ pub(crate) fn circuit_poseidon_round_function<
 
     sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
     state[0].add_assign_constant(constants_for_partial_rounds.last().unwrap()[0]);
-    *state = mul_by_sparse_matrix(state, &sparse_matrixes.last().unwrap());
+    mul_by_sparse_matrix(&sparse_matrixes.last().unwrap(), state);
 
     // second full round
     for round in (params.number_of_partial_rounds() + half_of_full_rounds)
@@ -129,7 +129,7 @@ pub(crate) fn circuit_poseidon_round_function<
         )?;
 
         // mul state by mds
-        *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
+        matrix_vector_product(&params.mds_matrix(), state)?;
     }
 
     Ok(())

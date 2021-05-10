@@ -1,59 +1,46 @@
-use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
+use franklin_crypto::bellman::{Engine, SynthesisError};
 use franklin_crypto::plonk::circuit::linear_combination::LinearCombination;
-use franklin_crypto::{
-    bellman::{Engine, SynthesisError},
-    plonk::circuit::allocated_num::Num,
-};
-use std::convert::TryInto;
-// Multiplies matrix with a vector  and assigns result into same vector.
-pub(crate) fn matrix_vector_product<E: Engine, CS: ConstraintSystem<E>, const DIM: usize>(
-    cs: &mut CS,
+// Computes matrix vector product and assigns result into same vector.
+pub(crate) fn matrix_vector_product<E: Engine, const DIM: usize>(
     matrix: &[[E::Fr; DIM]; DIM],
-    vector: &[LinearCombination<E>; DIM],
-) -> Result<[LinearCombination<E>; DIM], SynthesisError> {
-    let mut result: [LinearCombination<E>; DIM] = (0..DIM)
-        .map(|_| LinearCombination::zero())
-        .collect::<Vec<LinearCombination<E>>>()
-        .try_into()
-        .expect("vector of lc");
-    // let mut result = [LinearCombination::zero(); DIM];
-    let vec_as_nums = vector
-        .iter()
-        .map(|v| v.to_owned().into_num(cs).expect("into allocated num"))
-        .collect::<Vec<Num<E>>>();
-    for (i, matrix_row) in matrix.iter().enumerate() {
+    vector: &mut [LinearCombination<E>; DIM],
+) -> Result<(), SynthesisError> {
+    let vec_cloned = vector.clone();
+
+    for (idx, row) in matrix.iter().enumerate() {
         // [fr, fr, fr] * [lc, lc, lc]
-        for (coeff, num) in matrix_row.iter().zip(&vec_as_nums) {
-            result[i].add_assign_number_with_coeff(&num, *coeff)
+        vector[idx] = LinearCombination::zero();
+        for (factor, lc) in row.iter().zip(&vec_cloned) {
+            vector[idx].add_assign_scaled(lc, *factor)
         }
     }
 
-    Ok(result)
+    Ok(())
 }
 
-// Multiply sparse matrix and vector by exploiting sparsity of optimized matrixes.
+// Computes sparse matrix - vector by exploiting sparsity of optimized matrixes.
 pub(crate) fn mul_by_sparse_matrix<E: Engine, const DIM: usize>(
-    vector: &[LinearCombination<E>; DIM],
     matrix: &[[E::Fr; DIM]; DIM],
-) -> [LinearCombination<E>; DIM] {
+    vector: &mut [LinearCombination<E>; DIM],
+) {
     assert_eq!(DIM, 3, "valid only for 3x3 matrix");
-    let mut result: [LinearCombination<E>; DIM] = (0..DIM)
-        .map(|_| LinearCombination::zero())
-        .collect::<Vec<LinearCombination<E>>>()
-        .try_into()
-        .expect("vector of lc");
 
-    for (a, b) in vector.iter().zip(matrix[0].iter()) {
-        result[0].add_assign_scaled(a, *b);
+    let vec_cloned = vector.clone();
+
+    // we will assign result into input vector so set each to zero
+    for lc in vector.iter_mut() {
+        *lc = LinearCombination::zero();
+    }    
+
+    for (a, b) in vec_cloned.iter().zip(matrix[0].iter()) {
+        vector[0].add_assign_scaled(a, *b);
     }
 
-    result[1].add_assign_scaled(&vector[0], matrix[1][0]);
-    result[1].add_assign(&vector[1]);
+    vector[1].add_assign_scaled(&vec_cloned[0], matrix[1][0]);
+    vector[1].add_assign(&vec_cloned[1]);
 
-    result[2].add_assign_scaled(&vector[0], matrix[2][0]);
-    result[2].add_assign(&vector[2]);
-
-    result
+    vector[2].add_assign_scaled(&vec_cloned[0], matrix[2][0]);
+    vector[2].add_assign(&vec_cloned[2]);
 }
 
 #[cfg(test)]
@@ -102,9 +89,9 @@ mod test {
         matrix[2][2] = Fr::one();
 
         crate::common::matrix::mmul_assign::<Bn256, DIM>(&matrix, &mut vector_fe);
-        let actual = super::mul_by_sparse_matrix(&vector_lc, &matrix);
+        super::mul_by_sparse_matrix(&matrix, &mut vector_lc);
 
-        vector_fe.iter().zip(actual.iter()).for_each(|(fe, lc)| {
+        vector_fe.iter().zip(vector_lc.iter()).for_each(|(fe, lc)| {
             let actual = lc.clone().into_num(cs).unwrap().get_value().unwrap();
             assert_eq!(*fe, actual);
         });

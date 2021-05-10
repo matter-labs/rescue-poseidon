@@ -1,5 +1,5 @@
 use super::sbox::sbox;
-use super::utils::matrix_vector_product;
+use super::matrix::matrix_vector_product;
 use crate::{DomainStrategy, circuit::sponge::circuit_generic_hash_num, traits::{HashFamily, HashParams}};
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
 
@@ -67,7 +67,7 @@ pub(crate) fn circuit_rescue_round_function<
             )?;
         }
         // mds row
-        *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
+        matrix_vector_product(&params.mds_matrix(), state)?;
 
         // round constants
         for (s, c) in state
