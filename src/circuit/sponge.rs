@@ -346,11 +346,29 @@ pub fn circuit_generic_round_function_conditional<
     execute: &Boolean,
     params: &P,
 ) -> Result<(), SynthesisError> {
-    match params.hash_family() {
+    let mut old_state_nums = [Num::zero(); WIDTH];
+    for (lc, s) in state.iter().zip(old_state_nums.iter_mut()) {
+        *s = lc.clone().into_num(cs)?;
+    }
+    let tmp = match params.hash_family() {
         HashFamily::Rescue => super::rescue::circuit_rescue_round_function(cs, params, state),
         HashFamily::Poseidon => super::poseidon::circuit_poseidon_round_function(cs, params, state),
         HashFamily::RescuePrime => {
             super::rescue_prime::gadget_rescue_prime_round_function(cs, params, state)
         }
+    };
+
+    let _ = tmp?;
+
+    let mut new_state_nums = [Num::zero(); WIDTH];
+    for (lc, s) in state.iter().zip(new_state_nums.iter_mut()) {
+        *s = lc.clone().into_num(cs)?;
     }
+
+    for ((old, new), lc) in old_state_nums.iter().zip(new_state_nums.iter()).zip(state.iter_mut()) {
+        let selected = Num::conditionally_select(cs, execute, &new, &old)?;
+        *lc = LinearCombination::from(selected);
+    }
+
+    Ok(())
 }

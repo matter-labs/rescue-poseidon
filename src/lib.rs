@@ -10,7 +10,7 @@ mod tests;
 mod traits;
 
 pub use circuit::sponge::{
-    circuit_generic_hash, circuit_generic_round_function, CircuitGenericSponge,
+    circuit_generic_hash, circuit_generic_round_function, CircuitGenericSponge, circuit_generic_round_function_conditional
 };
 pub use traits::{HashParams, CustomGate};
 pub use sponge::{generic_hash, generic_round_function, GenericSponge};
