@@ -24,7 +24,7 @@ pub(crate) fn poseidon_round_function<
 >(
     params: &P,
     state: &mut [E::Fr; WIDTH],
-    input: Option<[E::Fr; RATE]>,
+    _input: Option<[E::Fr; RATE]>,
 ) {
     assert_eq!(params.hash_family(), HashFamily::Poseidon, "Incorrect hash family!");
     debug_assert!(params.number_of_full_rounds() & 1 == 0);
