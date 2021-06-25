@@ -1,7 +1,8 @@
 use crate::common::{matrix::mmul_assign, sbox::sbox};
-use crate::hash::{generic_hash, generic_hash_var_length};
+use crate::sponge::{generic_hash};
 use crate::traits::{HashFamily, HashParams};
 use franklin_crypto::bellman::{Engine, Field};
+use super::params::PoseidonParams;
 
 /// Receives inputs whose length `known` prior(fixed-length).
 /// Also uses custom domain strategy which basically sets value of capacity element to
@@ -12,122 +13,7 @@ pub fn poseidon_hash<E: Engine, const L: usize>(input: &[E::Fr; L]) -> [E::Fr; 2
     const RATE: usize = 2;
 
     let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    generic_hash(&params, input)
-}
-
-/// Receives inputs whose length `unknown` prior (variable-length).
-/// Also uses custom domain strategy which does not touch to value of capacity element
-/// and does not apply any padding rule. Uses state-width=3 and rate=2.
-pub fn poseidon_hash_var_length<E: Engine>(input: &[E::Fr]) -> [E::Fr; 2] {
-    // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
-    const WIDTH: usize = 3;
-    const RATE: usize = 2;
-
-    let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    generic_hash_var_length(&params, input)
-}
-
-pub fn generic_poseidon_hash<
-    E: Engine,
-    const RATE: usize,
-    const WIDTH: usize,
-    const LENGTH: usize,
->(
-    input: &[E::Fr; LENGTH],
-) -> [E::Fr; RATE] {
-    let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    generic_hash(&params, input)
-}
-
-pub fn generic_poseidon_hash_var_length<
-    E: Engine,
-    const RATE: usize,
-    const WIDTH: usize,
->(
-    input: &[E::Fr],
-) -> [E::Fr; RATE] {
-    let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    generic_hash_var_length(&params, input)
-}
-
-#[derive(Clone, Debug)]
-pub struct PoseidonParams<E: Engine, const RATE: usize, const WIDTH: usize> {
-    state: [E::Fr; WIDTH],
-    mds_matrix: [[E::Fr; WIDTH]; WIDTH],
-    optimized_round_constants: Vec<[E::Fr; WIDTH]>,
-    optimized_mds_matrixes: (
-        [[E::Fr; WIDTH]; WIDTH],
-        Vec<[[E::Fr; WIDTH]; WIDTH]>,
-    ),
-    alpha: E::Fr,
-    full_rounds: usize,
-    partial_rounds: usize,
-}
-
-impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
-    for PoseidonParams<E, RATE, WIDTH>
-{
-    fn default() -> Self {
-        let (params, alpha, optimized_round_constants, optimized_mds_matrixes) =
-            super::params::poseidon_light_params::<E, RATE, WIDTH>();
-        Self {
-            state: [E::Fr::zero(); WIDTH],
-            mds_matrix: params.mds_matrix,
-            alpha,
-            optimized_round_constants,
-            optimized_mds_matrixes,
-            full_rounds: params.full_rounds,
-            partial_rounds: params.partial_rounds,
-        }
-    }
-}
-
-impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH>
-    for PoseidonParams<E, RATE, WIDTH>
-{
-    fn hash_family(&self) -> HashFamily {
-        HashFamily::Poseidon
-    }
-
-    fn constants_of_round(&self, _round: usize) -> [E::Fr; WIDTH] {
-        unimplemented!("Poseidon uses optimized constants")
-    }
-
-    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH] {
-        self.mds_matrix
-    }
-
-    fn number_of_full_rounds(&self) -> usize {
-        self.full_rounds
-    }
-
-    fn number_of_partial_rounds(&self) -> usize {
-        self.partial_rounds
-    }
-
-    fn alpha(&self) -> E::Fr {
-        self.alpha
-    }
-
-    fn alpha_inv(&self) -> E::Fr {
-        unimplemented!("Poseidon doesn't have inverse direction")
-    }
-
-    fn optimized_round_constants(&self) -> &[[E::Fr; WIDTH]] {
-        &self.optimized_round_constants
-    }
-
-    fn optimized_mds_matrixes(
-        &self,
-    ) -> (
-        &[[E::Fr; WIDTH]; WIDTH],
-        &[[[E::Fr; WIDTH]; WIDTH]],
-    ) {
-        (
-            &self.optimized_mds_matrixes.0,
-            &self.optimized_mds_matrixes.1,
-        )
-    }
+    generic_hash(&params, input, None)
 }
 
 pub(crate) fn poseidon_round_function<
@@ -138,6 +24,7 @@ pub(crate) fn poseidon_round_function<
 >(
     params: &P,
     state: &mut [E::Fr; WIDTH],
+    _input: Option<[E::Fr; RATE]>,
 ) {
     assert_eq!(params.hash_family(), HashFamily::Poseidon, "Incorrect hash family!");
     debug_assert!(params.number_of_full_rounds() & 1 == 0);

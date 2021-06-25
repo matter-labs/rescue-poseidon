@@ -1,73 +1,32 @@
-use super::hash::{circuit_generic_hash, circuit_generic_hash_var_length};
-use super::sbox::sbox_quintic;
-use super::utils::{matrix_vector_product, mul_by_sparse_matrix};
+use super::sbox::sbox;
+use super::sponge::circuit_generic_hash_num;
+use super::matrix::{matrix_vector_product, mul_by_sparse_matrix};
+use crate::{DomainStrategy, poseidon::params::PoseidonParams};
 use crate::traits::{HashFamily, HashParams};
-use crate::poseidon::PoseidonParams;
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
 use franklin_crypto::bellman::{Field, SynthesisError};
 use franklin_crypto::{
     bellman::Engine,
     plonk::circuit::{allocated_num::Num, linear_combination::LinearCombination},
 };
-use std::convert::TryInto;
 
 /// Receives inputs whose length `known` prior(fixed-length).
 /// Also uses custom domain strategy which basically sets value of capacity element to
 /// length of input and applies a padding rule which makes input size equals to multiple of
 /// rate parameter.
 /// Uses pre-defined state-width=3 and rate=2.
-pub fn gadget_poseidon_hash<E: Engine, CS: ConstraintSystem<E>, const L: usize>(
+pub fn circuit_poseidon_hash<E: Engine, CS: ConstraintSystem<E>, const L: usize>(
     cs: &mut CS,
     input: &[Num<E>; L],
+    domain_strategy: Option<DomainStrategy>,
 ) -> Result<[Num<E>; 2], SynthesisError> {
     const WIDTH: usize = 3;
     const RATE: usize = 2;
     let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    circuit_generic_hash(cs, &params, input).map(|res| res.try_into().expect(""))
+    circuit_generic_hash_num(cs, input, &params, domain_strategy)
 }
 
-/// Receives inputs whose length `unknown` prior (variable-length).
-/// Also uses custom domain strategy which does not touch to value of capacity element
-/// and does not apply any padding rule.
-/// Uses pre-defined state-width=3 and rate=2.
-pub fn gadget_rescue_hash_var_length<E: Engine, CS: ConstraintSystem<E>>(
-    cs: &mut CS,
-    input: &[Num<E>],
-) -> Result<[Num<E>; 2], SynthesisError> {
-    // TODO: try to implement const_generics_defaults: https://github.com/rust-lang/rust/issues/44580
-    const WIDTH: usize = 3;
-    const RATE: usize = 2;
-    let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    circuit_generic_hash_var_length(cs, &params, input).map(|res| res.try_into().expect(""))
-}
-
-pub fn gadget_generic_rescue_hash<
-    E: Engine,
-    CS: ConstraintSystem<E>,
-    const RATE: usize,
-    const WIDTH: usize,
-    const LENGTH: usize,
->(
-    cs: &mut CS,
-    input: &[Num<E>; LENGTH],
-) -> Result<[Num<E>; RATE], SynthesisError> {
-    let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    circuit_generic_hash(cs, &params, input).map(|res| res.try_into().expect(""))
-}
-
-pub fn gadget_generic_rescue_hash_var_length<
-    E: Engine,
-    CS: ConstraintSystem<E>,
-    const RATE: usize,
-    const WIDTH: usize,
->(
-    cs: &mut CS,
-    input: &[Num<E>],
-) -> Result<[Num<E>; RATE], SynthesisError> {
-    let params = PoseidonParams::<E, RATE, WIDTH>::default();
-    circuit_generic_hash_var_length(cs, &params, input).map(|res| res.try_into().expect(""))
-}
-pub(crate) fn gadget_poseidon_round_function<
+pub(crate) fn circuit_poseidon_round_function<
     E: Engine,
     CS: ConstraintSystem<E>,
     P: HashParams<E, RATE, WIDTH>,
@@ -99,10 +58,16 @@ pub(crate) fn gadget_poseidon_round_function<
             s.add_assign_constant(*c);
         }
         // non linear sbox
-        sbox_quintic::<E, _>(cs, state)?;
+        sbox(
+            cs,
+            params.alpha(),
+            state,
+            Some(0..WIDTH),
+            params.custom_gate(),
+        )?;
 
         // mul state by mds
-        *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
+        matrix_vector_product(&params.mds_matrix(), state)?;
     }
 
     state
@@ -110,7 +75,7 @@ pub(crate) fn gadget_poseidon_round_function<
         .zip(optimized_round_constants[half_of_full_rounds].iter())
         .for_each(|(a, b)| a.add_assign_constant(*b));
 
-    *state = matrix_vector_product(cs, &m_prime, state)?;
+    matrix_vector_product(&m_prime, state)?;
 
     let mut constants_for_partial_rounds = optimized_round_constants
         [half_of_full_rounds + 1..half_of_full_rounds + params.number_of_partial_rounds()]
@@ -118,20 +83,21 @@ pub(crate) fn gadget_poseidon_round_function<
     constants_for_partial_rounds.push([E::Fr::zero(); WIDTH]);
     // in order to reduce gate number we merge two consecutive iteration
     // which costs 2 gates per each
+
     for (round_constant, sparse_matrix) in constants_for_partial_rounds
         [..constants_for_partial_rounds.len() - 1]
         .chunks(2)
         .zip(sparse_matrixes[..sparse_matrixes.len() - 1].chunks(2))
     {
         // first
-        sbox_quintic::<E, _>(cs, &mut state[..1])?;
+        sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
         state[0].add_assign_constant(round_constant[0][0]);
-        *state = mul_by_sparse_matrix(state, &sparse_matrix[0]);
+        mul_by_sparse_matrix(&sparse_matrix[0], state);
 
         // second
-        sbox_quintic::<E, _>(cs, &mut state[..1])?;
+        sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
         state[0].add_assign_constant(round_constant[1][0]);
-        *state = mul_by_sparse_matrix(state, &sparse_matrix[1]);
+        mul_by_sparse_matrix(&sparse_matrix[1], state);
         // reduce gate cost: LC -> Num -> LC
         for state in state.iter_mut() {
             let num = state.clone().into_num(cs).expect("a num");
@@ -139,9 +105,9 @@ pub(crate) fn gadget_poseidon_round_function<
         }
     }
 
-    sbox_quintic::<E, _>(cs, &mut state[..1])?;
+    sbox(cs, params.alpha(), state, Some(0..1), params.custom_gate())?;
     state[0].add_assign_constant(constants_for_partial_rounds.last().unwrap()[0]);
-    *state = mul_by_sparse_matrix(state, &sparse_matrixes.last().unwrap());
+    mul_by_sparse_matrix(&sparse_matrixes.last().unwrap(), state);
 
     // second full round
     for round in (params.number_of_partial_rounds() + half_of_full_rounds)
@@ -154,10 +120,16 @@ pub(crate) fn gadget_poseidon_round_function<
             s.add_assign_constant(*c);
         }
 
-        sbox_quintic::<E, _>(cs, state)?;
+        sbox(
+            cs,
+            params.alpha(),
+            state,
+            Some(0..WIDTH),
+            params.custom_gate(),
+        )?;
 
         // mul state by mds
-        *state = matrix_vector_product(cs, &params.mds_matrix(), state)?;
+        matrix_vector_product(&params.mds_matrix(), state)?;
     }
 
     Ok(())

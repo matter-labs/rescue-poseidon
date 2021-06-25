@@ -10,7 +10,7 @@ edition = "2018"
 
 [dependencies]
 
-franklin_crypto = {package = "franklin-crypto", features = ["plonk"], git = "https://github.com/matter-labs/franklin-crypto", branch = "beta"}
+franklin_crypto = {package = "franklin-crypto", features = ["plonk"], git = "https://github.com/matter-labs/franklin-crypto", branch = "dev"}
 # franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
 num-bigint = "0.3"
 num-integer = "0.1"
@@ -23,8 +23,8 @@ sha3 = "0.9.1"
 
 [dev-dependencies]
 # reference poseidon does not uses specialization so some tests will fail.
-# poseidon_hash = {git = "https://github.com/shamatar/poseidon_hash"}
-poseidon_hash = {path = "../../shamatar/poseidon_hash"}
+poseidon_hash = {git = "https://github.com/shamatar/poseidon_hash"}
+# poseidon_hash = {path = "../../shamatar/poseidon_hash"}
 criterion = "0.3"
 hex = "0.4"
 

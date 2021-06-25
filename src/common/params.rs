@@ -10,7 +10,7 @@ use rand::{chacha::ChaChaRng, Rng, SeedableRng};
 use crate::common::utils::construct_mds_matrix;
 
 #[derive(Debug, Clone)]
-pub struct HasherParams<E: Engine, const RATE: usize, const WIDTH: usize> {
+pub struct InnerHashParameters<E: Engine, const RATE: usize, const WIDTH: usize> {
     pub security_level: usize,
     pub full_rounds: usize,
     pub partial_rounds: usize,
@@ -21,7 +21,7 @@ pub struct HasherParams<E: Engine, const RATE: usize, const WIDTH: usize> {
 
 type H = BlakeHasher;
 
-impl<E: Engine, const RATE: usize, const WIDTH: usize> HasherParams<E, RATE, WIDTH> {
+impl<E: Engine, const RATE: usize, const WIDTH: usize> InnerHashParameters<E, RATE, WIDTH> {
     pub fn new(security_level: usize, full_rounds: usize, partial_rounds: usize) -> Self {
         assert_ne!(RATE, 0);
         assert_ne!(WIDTH, 0);

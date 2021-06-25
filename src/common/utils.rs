@@ -153,7 +153,7 @@ pub(crate) fn construct_mds_matrix<E: Engine, R: Rng, const S: usize>(
 }
 
 // Computes GCD of an element. It basically computes inverse of alpha in given finite field.
-pub(crate) fn compute_gcd<E: Engine>(n: u64) -> Option<E::Fr> {
+pub(crate) fn compute_gcd<E: Engine, const N: usize>(n: u64) -> Option<[u64; N]> {
     let n_big = BigUint::from(n);
 
     let mut p_minus_one_biguint = BigUint::from(0u64);
@@ -164,38 +164,33 @@ pub(crate) fn compute_gcd<E: Engine>(n: u64) -> Option<E::Fr> {
 
     p_minus_one_biguint -= BigUint::one();
 
-    fn biguint_to_u64_array(mut v: BigUint) -> [u64; 4] {
-        let m: BigUint = BigUint::from(1u64) << 64;
-        let mut ret = [0; 4];
 
-        for idx in 0..4 {
-            ret[idx] = (&v % &m).to_u64().unwrap();
-            v >>= 64;
-        }
-        assert!(v.is_zero());
-        ret
-    }
 
     let alpha_signed = BigInt::from(n_big);
     let p_minus_one_signed = BigInt::from(p_minus_one_biguint);
 
-    let ExtendedGcd { gcd, x: _, y, .. } = p_minus_one_signed.extended_gcd(&alpha_signed);
+    let ExtendedGcd { gcd, x: _, mut y, .. } = p_minus_one_signed.extended_gcd(&alpha_signed);
     assert!(gcd.is_one());
-    let y = if y < BigInt::zero() {
-        let mut y = y;
+    if y < BigInt::zero() {
         y += p_minus_one_signed;
-
-        y.to_biguint().expect("must be > 0")
-    } else {
-        y.to_biguint().expect("must be > 0")
-    };
-
-    let inv_alpha = biguint_to_u64_array(y);
-
-    let mut alpha_inv_repr = <E::Fr as PrimeField>::Repr::default();
-    for (r, limb) in alpha_inv_repr.as_mut().iter_mut().zip(inv_alpha.iter()) {
-        *r = *limb;
+        
     }
 
-    E::Fr::from_repr(alpha_inv_repr).ok()
+    match y.to_biguint(){
+        Some(value) => return Some(biguint_to_u64_array(value)),
+        _ => return None,
+    }
 }
+
+pub(crate) fn biguint_to_u64_array<const N: usize>(mut v: BigUint) -> [u64; N] {
+    let m: BigUint = BigUint::from(1u64) << 64;
+    let mut ret = [0; N];
+
+    for idx in 0..N {
+        ret[idx] = (&v % &m).to_u64().unwrap();
+        v >>= 64;
+    }
+    assert!(v.is_zero());
+    ret
+}
+

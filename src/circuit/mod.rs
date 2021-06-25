@@ -1,10 +1,8 @@
-pub mod poseidon;
-pub mod rescue;
-pub mod rescue_prime;
+pub(crate) mod sponge;
+pub(crate) mod poseidon;
+pub(crate) mod rescue;
+pub(crate) mod rescue_prime;
 mod sbox;
-mod hash;
-mod sponge;
-mod traits;
-mod utils;
+mod matrix;
 #[cfg(test)]
 mod tests;

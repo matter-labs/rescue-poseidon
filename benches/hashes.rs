@@ -13,7 +13,7 @@ use franklin_crypto::{
 use rand::{Rand, SeedableRng, XorShiftRng};
 use rescue_poseidon::generic_round_function;
 use rescue_poseidon::{
-    poseidon::PoseidonParams, rescue::RescueParams, rescue_prime::RescuePrimeParams,
+    PoseidonParams, RescueParams, RescuePrimeParams,
 };
 
 fn init_rng() -> XorShiftRng {
@@ -41,29 +41,30 @@ fn test_state_inputs() -> [Fr; 3] {
     inputs
 }
 
-fn bench_poseidon_round_function_comparison(crit: &mut Criterion) {
-    let params = PoseidonParams::<Bn256, 2, 3>::default();
-    let mut group = crit.benchmark_group("Poseidon Comparison");
+// fn bench_poseidon_round_function_comparison(crit: &mut Criterion) {
+//     let params = PoseidonParams::<Bn256, 2, 3>::default();
+//     let mut group = crit.benchmark_group("Poseidon Comparison");
 
-    group.bench_function("New Poseidon Round Function", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
-    });
-    use poseidon_hash::bn256::Bn256PoseidonParams;
-    use poseidon_hash::StatefulSponge;
+//     group.bench_function("New Poseidon Round Function", |b| {
+//         b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
+//     });
+//     use poseidon_hash::bn256::Bn256PoseidonParams;
+//     use poseidon_hash::StatefulSponge;
 
-    let params = Bn256PoseidonParams::new_checked_2_into_1();
+//     let params = Bn256PoseidonParams::new_checked_2_into_1();
 
-    let mut poseidon = StatefulSponge::<Bn256>::new(&params);
-    group.bench_function("Old Poseidon Round Function", |b| {
-        b.iter(|| poseidon.absorb(&test_inputs()))
-    });
-}
+//     let mut poseidon = StatefulSponge::<Bn256>::new(&params);
+//     group.bench_function("Old Poseidon Round Function", |b| {
+//         b.iter(|| poseidon.absorb(&test_inputs()))
+//     });
+// }
+
 fn bench_rescue_round_function_comparison(crit: &mut Criterion) {
     let params = RescueParams::<Bn256, 2, 3>::default();
     let mut group = crit.benchmark_group("Rescue Round Function Comparison");
 
     group.bench_function("New Rescue", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
     });
 
     use franklin_crypto::rescue::bn256::Bn256RescueParams;
@@ -72,26 +73,28 @@ fn bench_rescue_round_function_comparison(crit: &mut Criterion) {
     let params = Bn256RescueParams::new_checked_2_into_1();
 
     let mut rescue = StatefulRescue::<Bn256>::new(&params);
-    group.bench_function("Old Rescue", |b| b.iter(|| rescue.absorb(&test_inputs())));
+    group.bench_function("Old Rescue", |b| {
+        b.iter(|| rescue.absorb(&test_inputs()))
+    });
 }
 
 fn bench_rescue_round_function(crit: &mut Criterion) {
     let params = RescueParams::<Bn256, 2, 3>::default();
     crit.bench_function("Rescue Round Function", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
     });
 }
 fn bench_poseidon_round_function(crit: &mut Criterion) {
     let params = PoseidonParams::<Bn256, 2, 3>::default();
     crit.bench_function("Poseidon Round Function", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
     });
 }
 
 fn bench_rescue_prime_round_function(crit: &mut Criterion) {
     let params = RescuePrimeParams::<Bn256, 2, 3>::default();
     crit.bench_function("RescuePrime Round Function", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
     });
 }
 
@@ -99,6 +102,6 @@ pub fn group(crit: &mut Criterion) {
     bench_rescue_round_function(crit);
     bench_poseidon_round_function(crit);
     bench_rescue_round_function_comparison(crit);
-    bench_poseidon_round_function_comparison(crit);
+    // bench_poseidon_round_function_comparison(crit);
     bench_rescue_prime_round_function(crit);
 }
