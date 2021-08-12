@@ -74,7 +74,6 @@ fn sbox_alpha<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize>(
             }
             Num::Variable(ref value) => {
                 let result = if use_custom_gate {
-                    // apply_5th_power(cs, value, None)?
                     inner_apply_5th_power(cs, value, None, custom_gate)?
                 } else {
                     let square = value.square(cs)?;
@@ -118,7 +117,6 @@ fn sbox_alpha_inv<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize, const 
                 })?;
 
                 if use_custom_gate {
-                    // let _ = apply_5th_power(cs, &powered, Some(*value))?;
                     let _ = inner_apply_5th_power(cs, &powered, Some(*value), custom_gate)?;
                 } else {
                     let squared = powered.square(cs)?;
