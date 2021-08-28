@@ -37,7 +37,7 @@ impl DomainStrategy {
 
         let mut out_repr = <E::Fr as PrimeField>::Repr::default();
         out_repr.as_mut()[0] = (rate - 1) as u64;
-        let out_el = E::Fr::from_repr(repr).unwrap();
+        let out_el = E::Fr::from_repr(out_repr).unwrap();
 
         match &self {
             Self::FixedLength => {
