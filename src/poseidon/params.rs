@@ -111,6 +111,211 @@ pub fn poseidon_params<E: Engine, const RATE: usize, const WIDTH: usize>(
     (params, alpha)
 }
 
+#[derive(Clone)]
+pub struct LowMDSPoseidonParams<E: Engine, const RATE: usize, const WIDTH: usize> {
+    pub(crate) alpha: Sbox,
+    pub(crate) full_rounds: usize,
+    pub(crate) partial_rounds: usize,
+    pub(crate) round_constants: Vec<[E::Fr; WIDTH]>,
+    pub(crate) custom_gate: CustomGate,
+}
+
+impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH>
+    for LowMDSPoseidonParams<E, RATE, WIDTH>
+{
+    const SUPPORTS_SPECIALIZATION: bool = true;
+
+    fn specialized_round_function(&self, state: &mut [E::Fr; WIDTH]) {
+        self.specialized_round_function_impl(state);
+    }
+
+    fn hash_family(&self) -> HashFamily {
+        HashFamily::Poseidon
+    }
+
+    fn constants_of_round(&self, _round: usize) -> [E::Fr; WIDTH] {
+        unimplemented!("Specialized params are not directly callable")
+    }
+
+    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH] {
+        unimplemented!("Specialized params are not directly callable")
+    }
+
+    fn number_of_full_rounds(&self) -> usize {
+        self.full_rounds
+    }
+
+    fn number_of_partial_rounds(&self) -> usize {
+        self.partial_rounds
+    }
+
+    fn alpha(&self) -> &Sbox {
+        &self.alpha
+    }
+
+    fn alpha_inv(&self) -> &Sbox {
+        unimplemented!("Poseidon doesn't have inverse direction")
+    }
+
+    fn optimized_round_constants(&self) -> &[[E::Fr; WIDTH]] {
+        unimplemented!("Specialized params are not directly callable")
+    }
+
+    fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH]; WIDTH]]) {
+        unimplemented!("Specialized params are not directly callable")
+    }
+
+    fn custom_gate(&self) -> CustomGate {
+        self.custom_gate
+    }
+
+    fn use_custom_gate(&mut self, custom_gate: CustomGate) {
+        self.custom_gate = custom_gate;
+    }
+}
+
+impl<E: Engine, const RATE: usize, const WIDTH: usize> LowMDSPoseidonParams<E, RATE, WIDTH> {
+    pub fn new() -> Self {
+        let security_level = 80;
+        let full_rounds = 8;
+        let partial_rounds = 35;
+
+        let mut params = InnerHashParameters::<E, RATE, WIDTH>::new(security_level, full_rounds, partial_rounds);
+
+        let number_of_rounds = full_rounds + partial_rounds;
+        let rounds_tag = b"Rescue_f";
+        params.compute_round_constants(number_of_rounds, rounds_tag);
+
+        let alpha = 5u64;
+
+        Self {
+            alpha: Sbox::Alpha(alpha),
+            full_rounds,
+            partial_rounds,
+            round_constants: params.round_constants,
+            custom_gate: CustomGate::QuinticWidth4,
+        }
+    }
+
+    fn specialized_round_function_impl(&self, state: &mut [E::Fr; WIDTH]) {
+        use crate::common::sbox::sbox;
+
+        assert_eq!(WIDTH, 3);
+        assert_eq!(RATE, 2);
+
+        // MDS matrix is 
+
+        // [1 1 1]
+        // [1 2 3]
+        // [3 1 2] 
+
+        // so we optimize multiplication
+
+        let round_constants = &self.round_constants;
+
+        let half_of_full_rounds = self.full_rounds / 2;
+
+        // full rounds
+        for round in 0..half_of_full_rounds {
+            // add round constatnts
+            for (s, c) in state.iter_mut().zip(&round_constants[round]) {
+                s.add_assign(c);
+            }
+            // apply sbox
+            sbox::<E>(self.alpha(), state);
+
+            let mut r0 = state[0];
+            r0.add_assign(&state[1]);
+
+            r0.add_assign(&state[2]);
+
+            let mut r1 = r0;
+            r1.add_assign(&state[1]);
+            let mut t = state[2];
+            t.double();
+            r1.add_assign(&t);
+
+            let mut r2 = r1;
+            r2.add_assign(&state[2]);
+            
+            let mut t = state[0];
+            t.double();
+            r2.add_assign(&t);
+
+            state[0] = r0;
+            state[1] = r1;
+            state[2] = r2;
+        }
+
+        for round in half_of_full_rounds..(half_of_full_rounds + self.partial_rounds) {
+            // add round constatnts
+            for (s, c) in state.iter_mut().zip(&round_constants[round]) {
+                s.add_assign(c);
+            }
+
+            // apply sbox
+            sbox::<E>(self.alpha(), &mut state[0..1]);
+
+            let mut r0 = state[0];
+            r0.add_assign(&state[1]);
+
+            r0.add_assign(&state[2]);
+
+            let mut r1 = r0;
+            r1.add_assign(&state[1]);
+            let mut t = state[2];
+            t.double();
+            r1.add_assign(&t);
+
+            let mut r2 = r1;
+            r2.add_assign(&state[2]);
+            
+            let mut t = state[0];
+            t.double();
+            r2.add_assign(&t);
+
+            state[0] = r0;
+            state[1] = r1;
+            state[2] = r2;
+        }
+
+        // full rounds
+        for round in (self.number_of_partial_rounds() + half_of_full_rounds)
+            ..(self.number_of_partial_rounds() + self.number_of_full_rounds())
+        {
+            // add round constants
+            for (s, c) in state.iter_mut().zip(&round_constants[round]) {
+                s.add_assign(c);
+            }
+
+            // apply sbox
+            sbox::<E>(self.alpha(), state);
+
+            let mut r0 = state[0];
+            r0.add_assign(&state[1]);
+
+            r0.add_assign(&state[2]);
+
+            let mut r1 = r0;
+            r1.add_assign(&state[1]);
+            let mut t = state[2];
+            t.double();
+            r1.add_assign(&t);
+
+            let mut r2 = r1;
+            r2.add_assign(&state[2]);
+            
+            let mut t = state[0];
+            t.double();
+            r2.add_assign(&t);
+
+            state[0] = r0;
+            state[1] = r1;
+            state[2] = r2;
+        }
+    }
+}
+
 pub(crate) fn poseidon_light_params<E: Engine, const RATE: usize, const WIDTH: usize>() -> (
     InnerHashParameters<E, RATE, WIDTH>,
     u64,

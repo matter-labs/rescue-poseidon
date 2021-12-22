@@ -30,6 +30,11 @@ pub(crate) fn poseidon_round_function<
     debug_assert!(params.number_of_full_rounds() & 1 == 0);
     let half_of_full_rounds = params.number_of_full_rounds() / 2;
 
+    if P::SUPPORTS_SPECIALIZATION {
+        params.specialized_round_function(state);
+        return;
+    }
+
     let mut mds_result = [E::Fr::zero(); WIDTH];
 
     let optimized_round_constants = params.optimized_round_constants();

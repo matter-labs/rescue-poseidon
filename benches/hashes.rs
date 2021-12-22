@@ -11,7 +11,7 @@ use franklin_crypto::{
 };
 
 use rand::{Rand, SeedableRng, XorShiftRng};
-use rescue_poseidon::generic_round_function;
+use rescue_poseidon::{generic_round_function, poseidon::params::LowMDSPoseidonParams};
 use rescue_poseidon::{
     PoseidonParams, RescueParams, RescuePrimeParams,
 };
@@ -91,6 +91,13 @@ fn bench_poseidon_round_function(crit: &mut Criterion) {
     });
 }
 
+fn bench_poseidon_low_complexity_mds_round_function(crit: &mut Criterion) {
+    let params = LowMDSPoseidonParams::<Bn256, 2, 3>::new();
+    crit.bench_function("Poseidon Round Function for special MDS", |b| {
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
+    });
+}
+
 fn bench_rescue_prime_round_function(crit: &mut Criterion) {
     let params = RescuePrimeParams::<Bn256, 2, 3>::default();
     crit.bench_function("RescuePrime Round Function", |b| {
@@ -101,7 +108,7 @@ fn bench_rescue_prime_round_function(crit: &mut Criterion) {
 pub fn group(crit: &mut Criterion) {
     bench_rescue_round_function(crit);
     bench_poseidon_round_function(crit);
-    bench_rescue_round_function_comparison(crit);
-    // bench_poseidon_round_function_comparison(crit);
+    // bench_rescue_round_function_comparison(crit);
+    bench_poseidon_low_complexity_mds_round_function(crit);
     bench_rescue_prime_round_function(crit);
 }

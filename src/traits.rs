@@ -31,6 +31,10 @@ impl std::fmt::Debug for Sbox {
 pub trait HashParams<E: Engine, const RATE: usize, const WIDTH: usize>:
     Clone + Send + Sync
 {
+    const SUPPORTS_SPECIALIZATION: bool = false;
+    fn specialized_round_function(&self, state: &mut [E::Fr; WIDTH]) {
+        unimplemented!("by default hash params only provide generic parameters");
+    }
     fn hash_family(&self) -> HashFamily;
     fn constants_of_round(&self, round: usize) -> [E::Fr; WIDTH];
     fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH];
