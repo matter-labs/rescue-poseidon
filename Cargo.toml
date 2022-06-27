@@ -19,6 +19,7 @@ rand = "0.4"
 byteorder = "1"
 num-traits = "0.2"
 sha3 = "0.9.1"
+serde = {version = "1", features = ["derive"]}
 
 
 [dev-dependencies]

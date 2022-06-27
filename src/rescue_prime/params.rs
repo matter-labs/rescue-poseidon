@@ -13,10 +13,15 @@ use num_integer::{ExtendedGcd, Integer};
 use num_traits::{One, ToPrimitive, Zero};
 use std::convert::TryInto;
 use std::ops::{Mul, Sub};
-#[derive(Clone, Debug)]
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RescuePrimeParams<E: Engine, const RATE: usize, const WIDTH: usize> {
     pub(crate) full_rounds: usize,
+    #[serde(serialize_with = "crate::serialize_vec_of_arrays")]
+    #[serde(deserialize_with = "crate::deserialize_vec_of_arrays")]
     pub(crate) round_constants: Vec<[E::Fr; WIDTH]>,
+    #[serde(serialize_with = "crate::serialize_array_of_arrays")]
+    #[serde(deserialize_with = "crate::deserialize_array_of_arrays")]
     pub(crate) mds_matrix: [[E::Fr; WIDTH]; WIDTH],
     pub(crate) alpha: Sbox,
     pub(crate) alpha_inv: Sbox,

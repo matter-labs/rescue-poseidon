@@ -5,10 +5,14 @@ use crate::traits::{HashParams, HashFamily, Sbox, CustomGate};
 use std::convert::TryInto;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RescueParams<E: Engine, const RATE: usize, const WIDTH: usize> {
     pub(crate) full_rounds: usize,
+    #[serde(serialize_with = "crate::serialize_vec_of_arrays")]
+    #[serde(deserialize_with = "crate::deserialize_vec_of_arrays")]
     pub(crate) round_constants: Vec<[E::Fr; WIDTH]>,
+    #[serde(serialize_with = "crate::serialize_array_of_arrays")]
+    #[serde(deserialize_with = "crate::deserialize_array_of_arrays")]
     pub(crate) mds_matrix: [[E::Fr; WIDTH]; WIDTH],
     pub(crate) alpha: Sbox,
     pub(crate) alpha_inv: Sbox,

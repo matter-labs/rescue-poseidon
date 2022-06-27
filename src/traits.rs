@@ -6,14 +6,14 @@ pub enum HashFamily {
     RescuePrime,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CustomGate {
     QuinticWidth4,
     QuinticWidth3,
     None,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Sbox {
     Alpha(u64),
     AlphaInverse([u64; 4]), // TODO
@@ -29,7 +29,7 @@ impl std::fmt::Debug for Sbox {
 }
 
 pub trait HashParams<E: Engine, const RATE: usize, const WIDTH: usize>:
-    Clone + Send + Sync
+    Clone + Send + Sync + serde::Serialize + serde::de::DeserializeOwned
 {
     fn hash_family(&self) -> HashFamily;
     fn constants_of_round(&self, round: usize) -> [E::Fr; WIDTH];

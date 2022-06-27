@@ -4,12 +4,22 @@ use crate::common::matrix::{compute_optimized_matrixes, mmul_assign, try_inverse
 use crate::common::params::InnerHashParameters;
 use crate::traits::{CustomGate, HashFamily, HashParams, Sbox};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PoseidonParams<E: Engine, const RATE: usize, const WIDTH: usize> {
+    #[serde(with = "crate::BigArraySerde")]
     pub(crate) state: [E::Fr; WIDTH],
+    #[serde(serialize_with = "crate::serialize_array_of_arrays")]
+    #[serde(deserialize_with = "crate::deserialize_array_of_arrays")]
     pub(crate) mds_matrix: [[E::Fr; WIDTH]; WIDTH],
+    #[serde(serialize_with = "crate::serialize_vec_of_arrays")]
+    #[serde(deserialize_with = "crate::deserialize_vec_of_arrays")]
     pub(crate) optimized_round_constants: Vec<[E::Fr; WIDTH]>,
-    pub(crate) optimized_mds_matrixes: ([[E::Fr; WIDTH]; WIDTH], Vec<[[E::Fr; WIDTH]; WIDTH]>),
+    #[serde(serialize_with = "crate::serialize_array_of_arrays")]
+    #[serde(deserialize_with = "crate::deserialize_array_of_arrays")]
+    pub(crate) optimized_mds_matrixes_0: [[E::Fr; WIDTH]; WIDTH],
+    #[serde(serialize_with = "crate::serialize_vec_of_arrays_of_arrays")]
+    #[serde(deserialize_with = "crate::deserialize_vec_of_arrays_of_arrays")]
+    pub(crate) optimized_mds_matrixes_1: Vec<[[E::Fr; WIDTH]; WIDTH]>,
     pub(crate) alpha: Sbox,
     pub(crate) full_rounds: usize,
     pub(crate) partial_rounds: usize,
@@ -26,14 +36,19 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> PartialEq
 
 impl<E: Engine, const RATE: usize, const WIDTH: usize> Default for PoseidonParams<E, RATE, WIDTH> {
     fn default() -> Self {
-        let (params, alpha, optimized_round_constants, optimized_mds_matrixes) =
+        let (params, 
+            alpha, 
+            optimized_round_constants, 
+            (optimized_mds_matrixes_0, optimized_mds_matrixes_1)
+        ) =
             super::params::poseidon_light_params::<E, RATE, WIDTH>();
         Self {
             state: [E::Fr::zero(); WIDTH],
             mds_matrix: params.mds_matrix,
             alpha: Sbox::Alpha(alpha),
             optimized_round_constants,
-            optimized_mds_matrixes,
+            optimized_mds_matrixes_0,
+            optimized_mds_matrixes_1,
             full_rounds: params.full_rounds,
             partial_rounds: params.partial_rounds,
             custom_gate: CustomGate::None,
@@ -78,8 +93,8 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
 
     fn optimized_mds_matrixes(&self) -> (&[[E::Fr; WIDTH]; WIDTH], &[[[E::Fr; WIDTH]; WIDTH]]) {
         (
-            &self.optimized_mds_matrixes.0,
-            &self.optimized_mds_matrixes.1,
+            &self.optimized_mds_matrixes_0,
+            &self.optimized_mds_matrixes_1,
         )
     }
 
