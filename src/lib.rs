@@ -14,7 +14,7 @@ use std::convert::TryInto;
 pub use circuit::sponge::{
     circuit_generic_hash, circuit_generic_round_function, CircuitGenericSponge, circuit_generic_round_function_conditional
 };
-use serde::{ser::{SerializeTuple, SerializeSeq}, Serialize};
+use serde::{ser::{SerializeTuple}, Serialize};
 pub use traits::{HashParams, CustomGate, HashFamily};
 pub use sponge::{generic_hash, generic_round_function, GenericSponge};
 pub use poseidon::{params::PoseidonParams, poseidon_hash};

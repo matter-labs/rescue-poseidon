@@ -1,5 +1,6 @@
 use franklin_crypto::bellman::Engine;
-#[derive(Debug, PartialEq, Eq)]
+
+#[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HashFamily {
     Rescue,
     Poseidon,
