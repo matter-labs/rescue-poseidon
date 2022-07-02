@@ -10,8 +10,8 @@ edition = "2018"
 
 [dependencies]
 
-#franklin-crypto = { git = "https://github.com/matter-labs/franklin-crypto", branch = "gpu-prover", features = ["plonk"]}
-franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
+franklin-crypto = { git = "https://github.com/matter-labs/franklin-crypto", branch = "gpu-prover", features = ["plonk"]}
+#franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
 num-bigint = "0.3"
 num-integer = "0.1"
 num-iter = "0.1"
