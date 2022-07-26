@@ -64,7 +64,7 @@ fn bench_rescue_round_function_comparison(crit: &mut Criterion) {
     let mut group = crit.benchmark_group("Rescue Round Function Comparison");
 
     group.bench_function("New Rescue", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
     });
 
     use franklin_crypto::rescue::bn256::Bn256RescueParams;
@@ -81,20 +81,26 @@ fn bench_rescue_round_function_comparison(crit: &mut Criterion) {
 fn bench_rescue_round_function(crit: &mut Criterion) {
     let params = RescueParams::<Bn256, 2, 3>::default();
     crit.bench_function("Rescue Round Function", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
+    });
+}
+fn bench_rescue_round_function_via_addition_chain(crit: &mut Criterion) {
+    let params = RescueParams::<Bn256, 2, 3>::specialized_for_num_rounds(8, 120);
+    crit.bench_function("Rescue Round Function via addition chain", |b| {
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
     });
 }
 fn bench_poseidon_round_function(crit: &mut Criterion) {
     let params = PoseidonParams::<Bn256, 2, 3>::default();
     crit.bench_function("Poseidon Round Function", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
     });
 }
 
 fn bench_rescue_prime_round_function(crit: &mut Criterion) {
     let params = RescuePrimeParams::<Bn256, 2, 3>::default();
     crit.bench_function("RescuePrime Round Function", |b| {
-        b.iter(|| generic_round_function(&params, &mut test_state_inputs(), None));
+        b.iter(|| generic_round_function(&params, &mut test_state_inputs()));
     });
 }
 
@@ -102,6 +108,7 @@ pub fn group(crit: &mut Criterion) {
     bench_rescue_round_function(crit);
     bench_poseidon_round_function(crit);
     bench_rescue_round_function_comparison(crit);
+    bench_rescue_round_function_via_addition_chain(crit);
     // bench_poseidon_round_function_comparison(crit);
     bench_rescue_prime_round_function(crit);
 }

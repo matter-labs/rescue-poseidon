@@ -23,8 +23,7 @@ pub(crate) fn rescue_round_function<
     const WIDTH: usize,
 >(
     params: &P,
-    state: &mut [E::Fr; WIDTH],
-    _input: Option<[E::Fr; RATE]>,
+    state: &mut [E::Fr; WIDTH]
 ) {
     assert_eq!(params.hash_family(), HashFamily::Rescue, "Incorrect hash family!");
 
@@ -42,13 +41,19 @@ pub(crate) fn rescue_round_function<
             sbox::<E>(params.alpha(), state);
         }
 
-        // mds
-        mmul_assign::<E, WIDTH>(&params.mds_matrix(), state);
+        if params.allows_specialization() {
+            // may be we get a cool MDS and can spedup a little
+            let constants = params.constants_of_round(round + 1);
+            params.specialized_affine_transformation_for_round(state, &constants);
+        } else {
+            // mds
+            mmul_assign::<E, WIDTH>(params.mds_matrix(), state);
 
-        // round constants
-        state
-            .iter_mut()
-            .zip(params.constants_of_round(round + 1).iter())
-            .for_each(|(s, c)| s.add_assign(c));
+            // round constants
+            state
+                .iter_mut()
+                .zip(params.constants_of_round(round + 1).iter())
+                .for_each(|(s, c)| s.add_assign(c));
+        }
     }
 }

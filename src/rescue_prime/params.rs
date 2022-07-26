@@ -4,7 +4,7 @@ use franklin_crypto::bellman::pairing::Engine;
 extern crate num_bigint;
 extern crate num_integer;
 extern crate num_traits;
-use crate::common::utils::biguint_to_u64_array;
+use crate::common::utils::biguint_to_u64_vec;
 use crate::traits::{CustomGate, HashFamily, HashParams, Sbox};
 use franklin_crypto::bellman::pairing::bn256::Bn256;
 use franklin_crypto::bellman::{Field, PrimeField};
@@ -16,6 +16,7 @@ use std::ops::{Mul, Sub};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RescuePrimeParams<E: Engine, const RATE: usize, const WIDTH: usize> {
+    pub(crate) allows_specialization: bool,
     pub(crate) full_rounds: usize,
     #[serde(serialize_with = "crate::serialize_vec_of_arrays")]
     #[serde(deserialize_with = "crate::deserialize_vec_of_arrays")]
@@ -41,11 +42,12 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> Default
     fn default() -> Self {
         let (params, alpha, alpha_inv) = super::params::rescue_prime_params::<E, RATE, WIDTH>();
         Self {
+            allows_specialization: false,
             full_rounds: params.full_rounds,
             round_constants: params.round_constants().try_into().expect("constant array"),
             mds_matrix: *params.mds_matrix(),
             alpha: Sbox::Alpha(alpha),
-            alpha_inv: Sbox::AlphaInverse(alpha_inv),
+            alpha_inv: Sbox::AlphaInverse(alpha_inv, alpha),
             custom_gate: CustomGate::None,
         }
     }
@@ -60,11 +62,12 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> RescuePrimeParams<E, RATE
     fn new_with_custom_gate(custom_gate: CustomGate) -> Self {
         let (params, alpha, alpha_inv) = super::params::rescue_prime_params::<E, RATE, WIDTH>();
         Self {
+            allows_specialization: false,
             full_rounds: params.full_rounds,
             round_constants: params.round_constants().try_into().expect("constant array"),
             mds_matrix: *params.mds_matrix(),
             alpha: Sbox::Alpha(alpha),
-            alpha_inv: Sbox::AlphaInverse(alpha_inv),
+            alpha_inv: Sbox::AlphaInverse(alpha_inv, alpha),
             custom_gate,
         }
     }
@@ -73,16 +76,20 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> RescuePrimeParams<E, RATE
 impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH>
     for RescuePrimeParams<E, RATE, WIDTH>
 {
+    #[inline]
+    fn allows_specialization(&self) -> bool {
+        self.allows_specialization
+    }
     fn hash_family(&self) -> HashFamily {
         HashFamily::RescuePrime
     }
 
-    fn constants_of_round(&self, round: usize) -> [E::Fr; WIDTH] {
-        self.round_constants[round]
+    fn constants_of_round(&self, round: usize) -> &[E::Fr; WIDTH] {
+        &self.round_constants[round]
     }
 
-    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH] {
-        self.mds_matrix
+    fn mds_matrix(&self) -> &[[E::Fr; WIDTH]; WIDTH] {
+        &self.mds_matrix
     }
 
     fn number_of_full_rounds(&self) -> usize {
@@ -250,7 +257,7 @@ fn compute_round_constants<E: Engine, const RATE: usize, const WIDTH: usize>(
 }
 
 pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
-) -> (InnerHashParameters<E, RATE, WIDTH>, u64, [u64; 4]) {
+) -> (InnerHashParameters<E, RATE, WIDTH>, u64, Vec<u64>) {
     let security_level = 80;
 
     let mut modulus_bytes = vec![];
@@ -272,7 +279,7 @@ pub fn rescue_prime_params<E: Engine, const RATE: usize, const WIDTH: usize>(
 
     params.compute_mds_matrix_for_rescue();
 
-    let alpha_inv = biguint_to_u64_array(alpha_inv);
+    let alpha_inv = biguint_to_u64_vec(alpha_inv);
 
     (params, alpha, alpha_inv)
 }

@@ -73,7 +73,7 @@ fn test_rescue_params() {
 
     let old_params = Bn256RescueParams::new_checked_2_into_1();
 
-    let (new_params, _, _) = crate::rescue::params::compute_params::<Bn256, RATE, WIDTH, 4>();
+    let (new_params, _, _) = crate::rescue::params::compute_params::<Bn256, RATE, WIDTH>();
 
     let number_of_rounds = new_params.full_rounds;
 

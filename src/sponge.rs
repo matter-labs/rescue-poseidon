@@ -220,7 +220,7 @@ fn absorb<E: Engine, P: HashParams<E, RATE, WIDTH>, const RATE: usize, const WID
     for (i, s) in input.iter().zip(state.iter_mut()) {
         s.add_assign(i);
     }
-    generic_round_function(params, state, None);
+    generic_round_function(params, state);
 }
 
 pub fn generic_round_function<
@@ -231,21 +231,16 @@ pub fn generic_round_function<
 >(
     params: &P,
     state: &mut [E::Fr; WIDTH],
-    input: Option<[E::Fr; RATE]>,
 ) {
-    if input.is_some() {
-        unimplemented!("round function with absorb has not implemented yet");
-    }
-
     match params.hash_family() {
         crate::traits::HashFamily::Rescue => {
-            crate::rescue::rescue_round_function(params, state, input)
+            crate::rescue::rescue_round_function(params, state)
         }
         crate::traits::HashFamily::Poseidon => {
-            crate::poseidon::poseidon_round_function(params, state, input)
+            crate::poseidon::poseidon_round_function(params, state)
         }
         crate::traits::HashFamily::RescuePrime => {
-            crate::rescue_prime::rescue_prime_round_function(params, state, input)
+            crate::rescue_prime::rescue_prime_round_function(params, state)
         }
     }
 }

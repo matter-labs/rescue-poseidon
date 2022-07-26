@@ -10,8 +10,8 @@ edition = "2018"
 
 [dependencies]
 
-# franklin_crypto = {package = "franklin-crypto", features = ["plonk"], git = "https://github.com/matter-labs/franklin-crypto", branch = "dev"}
-franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
+franklin_crypto = {package = "franklin-crypto", features = ["plonk"], git = "https://github.com/matter-labs/franklin-crypto", branch = "dev"}
+# franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
 num-bigint = "0.3"
 num-integer = "0.1"
 num-iter = "0.1"
@@ -20,7 +20,12 @@ byteorder = "1"
 num-traits = "0.2"
 sha3 = "0.9.1"
 serde = {version = "1", features = ["derive"]}
-
+addchain = "0.2"
+smallvec = "1.9"
+blake2 = "0.10"
+rayon = {version = "1.5", optional = true}
+lazy_static = {version = "1.4", optional = true}
+futures = {version = "*", features = ["executor", "thread-pool"], optional = true}
 
 [dev-dependencies]
 # reference poseidon does not uses specialization so some tests will fail.
@@ -41,6 +46,9 @@ hex = "0.4"
 # rpath = false
 
 [features]
+default = []
+rayon = ["dep:rayon"]
+futures = ["dep:lazy_static", "dep:futures"]
 
 [[bench]]
 name = "benches"

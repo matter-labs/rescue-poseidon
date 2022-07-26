@@ -152,8 +152,17 @@ pub(crate) fn construct_mds_matrix<E: Engine, R: Rng, const S: usize>(
     }
 }
 
-// Computes GCD of an element. It basically computes inverse of alpha in given finite field.
 pub(crate) fn compute_gcd<E: Engine, const N: usize>(n: u64) -> Option<[u64; N]> {
+    let y = compute_gcd_vec::<E>(n);
+
+    match y {
+        Some(value) => return Some(value.try_into().unwrap()),
+        _ => return None,
+    }
+}
+
+// Computes GCD of an element. It basically computes inverse of alpha in given finite field.
+pub(crate) fn compute_gcd_biguint<E: Engine>(n: u64) -> Option<BigUint> {
     let n_big = BigUint::from(n);
 
     let mut p_minus_one_biguint = BigUint::from(0u64);
@@ -163,8 +172,6 @@ pub(crate) fn compute_gcd<E: Engine, const N: usize>(n: u64) -> Option<[u64; N]>
     }
 
     p_minus_one_biguint -= BigUint::one();
-
-
 
     let alpha_signed = BigInt::from(n_big);
     let p_minus_one_signed = BigInt::from(p_minus_one_biguint);
@@ -176,20 +183,32 @@ pub(crate) fn compute_gcd<E: Engine, const N: usize>(n: u64) -> Option<[u64; N]>
         
     }
 
-    match y.to_biguint(){
-        Some(value) => return Some(biguint_to_u64_array(value)),
+    y.to_biguint()
+}
+
+pub(crate) fn compute_gcd_vec<E: Engine>(n: u64) -> Option<Vec<u64>> {
+    let y = compute_gcd_biguint::<E>(n);
+
+    match y {
+        Some(value) => return Some(biguint_to_u64_vec(value)),
         _ => return None,
     }
 }
 
-pub(crate) fn biguint_to_u64_array<const N: usize>(mut v: BigUint) -> [u64; N] {
+pub(crate) fn biguint_to_u64_vec(mut v: BigUint) -> Vec<u64> {
     let m: BigUint = BigUint::from(1u64) << 64;
-    let mut ret = [0; N];
+    let mut ret = vec![];
 
-    for idx in 0..N {
-        ret[idx] = (&v % &m).to_u64().unwrap();
+    loop {
+        if v.is_zero() {
+            break;
+        }
+
+        let el = (&v % &m).to_u64().unwrap();
+        ret.push(el);
         v >>= 64;
     }
+
     assert!(v.is_zero());
     ret
 }

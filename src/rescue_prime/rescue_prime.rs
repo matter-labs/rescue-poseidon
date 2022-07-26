@@ -28,7 +28,6 @@ pub(crate) fn rescue_prime_round_function<
 >(
     params: &P,
     state: &mut [E::Fr; WIDTH],
-    _input: Option<[E::Fr; RATE]>,
 ) {
     assert_eq!(
         params.hash_family(),

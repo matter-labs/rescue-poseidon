@@ -15,6 +15,7 @@ pub use circuit::sponge::{
     circuit_generic_hash, circuit_generic_round_function, CircuitGenericSponge, circuit_generic_round_function_conditional
 };
 use serde::{ser::{SerializeTuple}, Serialize};
+use smallvec::SmallVec;
 pub use traits::{HashParams, CustomGate, HashFamily};
 pub use sponge::{generic_hash, generic_round_function, GenericSponge};
 pub use poseidon::{params::PoseidonParams, poseidon_hash};
@@ -236,4 +237,35 @@ fn deserialize_array_of_arrays<'de, D, T: serde::Serialize + serde::de::Deserial
     };
 
     Ok(subarray)
+}
+
+fn add_chain_pow_smallvec<F: franklin_crypto::bellman::pairing::ff::PrimeField>(
+    base: F,
+    add_chain: &[crate::traits::Step],
+    scratch_space: &mut SmallVec<[F; 512]>,
+) -> F {
+    scratch_space.push(base);
+
+    for (idx, el) in add_chain.iter().enumerate() {
+        match el {
+            crate::traits::Step::Double { index } => {
+                let mut el = scratch_space[*index];
+                el.square();
+
+                scratch_space.push(el);
+            },
+            crate::traits::Step::Add { left, right } => {
+                let mut el = scratch_space[*left];
+                el.mul_assign(&scratch_space[*right]);
+
+                scratch_space.push(el);
+            }
+        }
+    }
+
+    let result = scratch_space.pop().unwrap();
+
+    scratch_space.clear();
+
+    result
 }

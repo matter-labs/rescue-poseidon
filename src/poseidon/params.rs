@@ -63,12 +63,12 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
         HashFamily::Poseidon
     }
 
-    fn constants_of_round(&self, _round: usize) -> [E::Fr; WIDTH] {
+    fn constants_of_round(&self, _round: usize) -> &[E::Fr; WIDTH] {
         unimplemented!("Poseidon uses optimized constants")
     }
 
-    fn mds_matrix(&self) -> [[E::Fr; WIDTH]; WIDTH] {
-        self.mds_matrix
+    fn mds_matrix(&self) -> &[[E::Fr; WIDTH]; WIDTH] {
+        &self.mds_matrix
     }
 
     fn number_of_full_rounds(&self) -> usize {

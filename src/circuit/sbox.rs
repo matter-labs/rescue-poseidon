@@ -13,6 +13,8 @@ use franklin_crypto::{
     },
 };
 
+use franklin_crypto::plonk::circuit::Assignment;
+
 use crate::traits::{CustomGate, Sbox};
 
 // Substitution box is non-linear part of permutation function.
@@ -42,9 +44,13 @@ pub(crate) fn sbox<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize>(
             state_range,
             custom_gate,
         ),
-        Sbox::AlphaInverse(alpha_inv) => {           
-            sbox_alpha_inv(cs, alpha_inv, prev_state, custom_gate)
-        }
+        Sbox::AlphaInverse(alpha_inv, alpha) => {           
+            sbox_alpha_inv(cs, alpha_inv, alpha, prev_state, custom_gate)
+        },
+        Sbox::AddChain(chain, alpha) => {         
+            // in circuit there is no difference  
+            sbox_alpha_inv_via_add_chain(cs, chain, alpha, prev_state, custom_gate)
+        },
     }
 }
 
@@ -88,12 +94,14 @@ fn sbox_alpha<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize>(
 
     return Ok(());
 }
+
 // This function computes power of inverse of alpha to each element of state.
 // By custom gate support, it costs only single gate. Under the hood, it proves
 // that 5th power of each element of state is equal to itself.(x^(1/5)^5==x)
-fn sbox_alpha_inv<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize, const N: usize>(
+fn sbox_alpha_inv<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize>(
     cs: &mut CS,
-    alpha_inv: &[u64; N],
+    alpha_inv: &[u64],
+    alpha: &u64,
     prev_state: &mut [LinearCombination<E>; WIDTH],
     custom_gate: CustomGate,
 ) -> Result<(), SynthesisError> {
@@ -101,6 +109,10 @@ fn sbox_alpha_inv<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize, const 
         CustomGate::None => false,
         _ => true,
     };
+
+    if *alpha != 5u64 {
+        unimplemented!("only inverse for 5th power is supported!")
+    }
 
     for lc in prev_state.iter_mut() {
         match lc.clone().into_num(cs)? {
@@ -110,12 +122,73 @@ fn sbox_alpha_inv<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize, const 
                 lc.add_assign_constant(result);
             }
             Num::Variable(ref value) => {
-                let powered = AllocatedNum::alloc(cs, || {
-                    let base = value.get_value().expect("value");
-
+                let wit: Option<E::Fr> = value.get_value().map(|base| {
                     let result = base.pow(alpha_inv);
-                    Ok(result)
-                })?;
+                    result
+                });
+
+                let powered = AllocatedNum::alloc(cs, || wit.grab())?;
+
+                if use_custom_gate {
+                    // let _ = apply_5th_power(cs, &powered, Some(*value))?;
+                    let _ = inner_apply_5th_power(cs, &powered, Some(*value), custom_gate)?;
+                } else {
+                    let squared = powered.square(cs)?;
+                    let quad = squared.square(cs)?;
+
+                    let mut term = MainGateTerm::<E>::new();
+                    let fifth_term = ArithmeticTerm::from_variable(quad.get_variable())
+                        .mul_by_variable(powered.get_variable());
+                    let el_term = ArithmeticTerm::from_variable(value.get_variable());
+                    term.add_assign(fifth_term);
+                    term.sub_assign(el_term);
+                    cs.allocate_main_gate(term)?;
+                };
+                *lc = LinearCombination::from(powered);
+            }
+        }
+    }
+
+    return Ok(());
+}
+
+
+// This function computes power of inverse of alpha to each element of state.
+// By custom gate support, it costs only single gate. Under the hood, it proves
+// that 5th power of each element of state is equal to itself.(x^(1/5)^5==x)
+fn sbox_alpha_inv_via_add_chain<E: Engine, CS: ConstraintSystem<E>, const WIDTH: usize>(
+    cs: &mut CS,
+    addition_chain: &[crate::traits::Step],
+    alpha: &u64,
+    prev_state: &mut [LinearCombination<E>; WIDTH],
+    custom_gate: CustomGate,
+) -> Result<(), SynthesisError> {
+    let use_custom_gate = match custom_gate {
+        CustomGate::None => false,
+        _ => true,
+    };
+
+    if *alpha != 5u64 {
+        unimplemented!("only inverse for 5th power is supported!")
+    }
+
+    for lc in prev_state.iter_mut() {
+        match lc.clone().into_num(cs)? {
+            Num::Constant(value) => {
+                let mut scratch = smallvec::SmallVec::<[E::Fr; 512]>::new();
+                let result = crate::add_chain_pow_smallvec(value, addition_chain, &mut scratch);
+                *lc = LinearCombination::zero();
+                lc.add_assign_constant(result);
+            }
+            Num::Variable(ref value) => {
+                let wit: Option<E::Fr> = value.get_value().map(|el| {
+                    let mut scratch = smallvec::SmallVec::<[E::Fr; 512]>::new();
+                    let result = crate::add_chain_pow_smallvec(el, addition_chain, &mut scratch);
+
+                    result
+                });
+
+                let powered = AllocatedNum::alloc(cs, || wit.grab())?;
 
                 if use_custom_gate {
                     // let _ = apply_5th_power(cs, &powered, Some(*value))?;
@@ -315,7 +388,7 @@ mod test {
     #[test]
     fn test_sbox_quintic_inv() {
         let alpha = 5;
-        let alpha_inv = Sbox::AlphaInverse(compute_inverse_alpha::<Bn256, 4>(alpha));
+        let alpha_inv = Sbox::AlphaInverse(compute_inverse_alpha::<Bn256, 4>(alpha).to_vec(), 5);
         test_sbox(alpha_inv);
     }
 
