@@ -1,4 +1,4 @@
-use franklin_crypto::bellman::{Engine, Field, PrimeField};
+use franklin_crypto::bellman::{Engine, Field};
 
 use crate::common::matrix::{compute_optimized_matrixes, mmul_assign, try_inverse};
 use crate::common::params::InnerHashParameters;

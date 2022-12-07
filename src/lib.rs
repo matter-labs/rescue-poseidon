@@ -85,7 +85,6 @@ impl<'de, T, const M: usize> serde::de::Visitor<'de> for ArrayVisitor<T, M>
                 .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
             arr.push(el);
         }
-        use std::convert::TryInto;
         let arr: [T; M] = arr.try_into().map_err(|_| serde::de::Error::invalid_length(M, &self))?;
 
         Ok(arr)
@@ -231,10 +230,7 @@ fn deserialize_array_of_arrays<'de, D, T: serde::Serialize + serde::de::Deserial
     let visitor = ArrayVisitor::<BigArrayWrapper<'de, [T; N]>, M> { element: std::marker::PhantomData };
     let result = deserializer.deserialize_tuple(M, visitor)?;
 
-    let subarray: [[T; N]; M] = match std::array::IntoIter::new(result).map(|el| el.0).collect::<Vec<_>>().try_into() {
-        Ok(a) => a,
-        Err(..) => panic!("length must patch")
-    };
+    let subarray = result.map(|el| el.0);
 
     Ok(subarray)
 }
@@ -246,7 +242,7 @@ fn add_chain_pow_smallvec<F: franklin_crypto::bellman::pairing::ff::PrimeField>(
 ) -> F {
     scratch_space.push(base);
 
-    for (idx, el) in add_chain.iter().enumerate() {
+    for (_idx, el) in add_chain.iter().enumerate() {
         match el {
             crate::traits::Step::Double { index } => {
                 let mut el = scratch_space[*index];

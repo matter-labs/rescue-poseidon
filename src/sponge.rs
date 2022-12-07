@@ -76,7 +76,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> GenericSponge<E, RATE
         let padding_values = domain_strategy.generate_padding_values::<E>(input.len(), RATE);
 
         // chain all values
-        let mut padded_input = vec![];
+        let mut padded_input = smallvec::SmallVec::<[_; 9]>::new();
         padded_input.extend_from_slice(input);
         padded_input.extend_from_slice(&padding_values);
 
@@ -169,7 +169,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> GenericSponge<E, RATE
             match self.mode {
                 SpongeMode::Absorb(ref mut buf) => {
                     // buffer may not be filled fully so we may need padding.
-                    let mut unwrapped_buffer = vec![];
+                    let mut unwrapped_buffer = arrayvec::ArrayVec::<_, RATE>::new();
                     for el in buf {
                         if let Some(value) = el {
                             unwrapped_buffer.push(*value);

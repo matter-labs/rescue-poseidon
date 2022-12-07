@@ -8,7 +8,7 @@ use franklin_crypto::{
     bellman::{Field, SynthesisError},
     plonk::circuit::allocated_num::AllocatedNum,
     plonk::circuit::{
-        allocated_num::Num, custom_rescue_gate::apply_5th_power,
+        allocated_num::Num,
         linear_combination::LinearCombination,
     },
 };

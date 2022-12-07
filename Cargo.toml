@@ -2,9 +2,9 @@
 name = "rescue_poseidon"
 description = "Sponge construction based Algebraic Hash Functions"
 keywords = ["poseidon", "rescue", "rescue prime", "sponge", "duplex sponge", "algebraic hash function", "arithmetization oriented hash function"]
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Sait Imamoglu <si@matterlabs.dev>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -26,6 +26,7 @@ blake2 = "0.10"
 rayon = {version = "1.5", optional = true}
 lazy_static = {version = "1.4", optional = true}
 futures = {version = "*", features = ["executor", "thread-pool"], optional = true}
+arrayvec = "0.7"
 
 [dev-dependencies]
 # reference poseidon does not uses specialization so some tests will fail.

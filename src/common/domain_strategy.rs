@@ -76,7 +76,7 @@ impl DomainStrategy {
             // input doesn't need padding
             return vec![];
         }
-        let mut values_for_padding = vec![];
+        let mut values_for_padding = Vec::with_capacity(rate);
         match self {
             Self::FixedLength => {
                 values_for_padding.resize(rate - input_len, E::Fr::zero());

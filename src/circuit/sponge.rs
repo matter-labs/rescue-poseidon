@@ -115,7 +115,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
             .collect::<Vec<Num<E>>>();
 
         // chain all values
-        let mut padded_input = vec![];
+        let mut padded_input = smallvec::SmallVec::<[_; 9]>::new();
         padded_input.extend_from_slice(input);
         padded_input.extend_from_slice(&padding_values);
 
@@ -132,12 +132,12 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
         }
 
         // prepare output
-        let mut output = Vec::with_capacity(RATE);
+        let mut output = arrayvec::ArrayVec::<_, RATE>::new();
         for s in state[..RATE].iter() {
             output.push(s.clone());
         }
 
-        Ok(output.try_into().expect("array"))
+        Ok(output.into_inner().expect("array"))
     }
 
     pub fn hash_num<CS: ConstraintSystem<E>, P: HashParams<E, RATE, WIDTH>>(
@@ -149,7 +149,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
         let result = Self::hash(cs, input, params, domain_strategy)?;
         // prepare output
         let mut output = [Num::Constant(E::Fr::zero()); RATE];
-        for (o, s) in output.iter_mut().zip(std::array::IntoIter::new(result)) {
+        for (o, s) in output.iter_mut().zip(result.into_iter()) {
             *o = s.into_num(cs)?;
         }
 
@@ -243,7 +243,7 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
             match self.mode {
                 SpongeMode::Absorb(ref mut buf) => {
                     // buffer may not be filled fully so we may need padding.
-                    let mut unwrapped_buffer = vec![];
+                    let mut unwrapped_buffer = arrayvec::ArrayVec::<_, RATE>::new();
                     for el in buf {
                         if let Some(value) = el {
                             unwrapped_buffer.push(*value);
@@ -265,11 +265,11 @@ impl<'a, E: Engine, const RATE: usize, const WIDTH: usize> CircuitGenericSponge<
                     absorb(cs, &mut self.state, &all_inputs, params)?;
 
                     // we are switching squeezing mode so we can ignore to reset absorbing buffer
-                    let mut squeezed_buffer = vec![];
+                    let mut squeezed_buffer = arrayvec::ArrayVec::<_, RATE>::new();
                     for s in self.state[..RATE].iter() {
                         squeezed_buffer.push(Some(s.clone()));
                     }
-                    self.mode = SpongeMode::Squeeze(squeezed_buffer.try_into().expect(""));
+                    self.mode = SpongeMode::Squeeze(squeezed_buffer.into_inner().expect("length must match"));
                 }
                 SpongeMode::Squeeze(ref mut buf) => {
                     for el in buf {
