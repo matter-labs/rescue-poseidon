@@ -242,5 +242,8 @@ pub fn generic_round_function<
         crate::traits::HashFamily::RescuePrime => {
             crate::rescue_prime::rescue_prime_round_function(params, state)
         }
+        crate::traits::HashFamily::Poseidon2 => {
+            todo!()
+        }
     }
 }

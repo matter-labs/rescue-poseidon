@@ -331,6 +331,9 @@ pub fn circuit_generic_round_function<
         HashFamily::RescuePrime => {
             super::rescue_prime::gadget_rescue_prime_round_function(cs, params, state)
         }
+        HashFamily::Poseidon2 => {
+            todo!()
+        }
     }
 }
 
@@ -355,6 +358,9 @@ pub fn circuit_generic_round_function_conditional<
         HashFamily::Poseidon => super::poseidon::circuit_poseidon_round_function(cs, params, state),
         HashFamily::RescuePrime => {
             super::rescue_prime::gadget_rescue_prime_round_function(cs, params, state)
+        }
+        HashFamily::Poseidon2 => {
+            todo!()
         }
     };
 

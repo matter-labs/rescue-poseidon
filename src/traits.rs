@@ -5,6 +5,7 @@ pub enum HashFamily {
     Rescue,
     Poseidon,
     RescuePrime,
+    Poseidon2
 }
 
 #[derive(Copy, Clone, Debug, serde::Serialize, serde::Deserialize)]

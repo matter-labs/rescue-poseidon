@@ -3,6 +3,7 @@ mod circuit;
 mod common;
 mod sponge;
 pub mod poseidon;
+pub mod poseidon2;
 pub mod rescue;
 pub mod rescue_prime;
 #[cfg(test)]
