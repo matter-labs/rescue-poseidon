@@ -1,3 +1,5 @@
+#![feature(allocator_api)]
+
 mod circuit;
 #[allow(dead_code)]
 mod common;
