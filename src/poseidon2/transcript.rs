@@ -3,8 +3,10 @@ use super::*;
 
 use derivative::*;
 
+use boojum::field::SmallField;
 use boojum::cs::traits::GoodAllocator;
-use franklin_crypto::bellman::PrimeField;
+use boojum::algebraic_props::round_function::AbsorptionModeTrait;
+use franklin_crypto::bellman::{PrimeField, PrimeFieldRepr};
 use boojum::cs::implementations::transcript::Transcript;
 
 #[derive(Derivative)]
