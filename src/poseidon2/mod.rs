@@ -122,6 +122,46 @@ impl<
         }
     }
 
+    pub fn absorb(&mut self, values: &[E::Fr]) {
+        let capasity_per_element = Self::capasity_per_element();
+        debug_assert!(self.filled < RATE * capasity_per_element);
+        let mut pos = self.filled / capasity_per_element;
+        let exp = self.filled % capasity_per_element;
+        let len = values.len();
+
+        if exp != 0 {
+            pos += 1;
+        }
+
+        if len + pos < RATE {
+            self.buffer[pos..pos+len].copy_from_slice(values);
+
+            self.filled += len * capasity_per_element;
+
+            return;
+        }
+
+        let chunks_start = RATE - pos;
+        let num_chunks = (len - chunks_start) / RATE;
+        let chunk_finish = chunks_start + num_chunks * RATE;
+
+        for (i, value) in values[..chunks_start].iter().enumerate() {
+            self.buffer[pos + i] = *value;
+        }
+        self.absorb_buffer_to_state();
+
+        for chunk in values[chunks_start..chunk_finish].chunks_exact(RATE) {
+            for (j, value) in chunk.iter().enumerate() {
+                M::absorb(&mut self.state[j], value);
+            }
+            self.run_round_function();
+        }
+
+        let new_pos = len - chunk_finish;
+        self.buffer[..new_pos].copy_from_slice(&values[chunk_finish..]);
+        self.filled = new_pos * capasity_per_element;
+    }
+
     pub fn finalize(&mut self) -> [E::Fr; RATE] {
         // padding
         self.absorb_single_small_field(&F::ONE);

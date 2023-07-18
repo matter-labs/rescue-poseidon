@@ -131,22 +131,8 @@ impl<
             }
         }
 
-        // let mut to_absorb = std::mem::replace(&mut self.buffer, vec![]);
-        // // we do rescue prime padding and absorb
-        // to_absorb.push(F::ONE);
-        // let mut multiple = to_absorb.len() / AW;
-        // if to_absorb.len() % AW != 0 {
-        //     multiple += 1;
-        // }
-        // to_absorb.resize(multiple * AW, F::ZERO);
-        // for chunk in to_absorb.array_chunks::<AW>() {
-        //     self.sponge.absorb(chunk);
-        //     assert_eq!(self.sponge.filled, 0);
-        // }
-
-        for el in self.buffer.drain(..) {
-            self.sponge.absorb_single(&el);
-        }
+        let to_absorb = std::mem::replace(&mut self.buffer, vec![]);
+        self.sponge.absorb(&to_absorb);
 
         let committment = self.sponge.finalize();
         self.available_challenges = committment.to_vec();
