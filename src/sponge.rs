@@ -243,7 +243,10 @@ pub fn generic_round_function<
             crate::rescue_prime::rescue_prime_round_function(params, state)
         }
         crate::traits::HashFamily::Poseidon2 => {
-            todo!()
+            crate::poseidon2::poseidon2_round_function(
+                state, 
+                params.try_to_poseidon2_params().unwrap()
+            )
         }
     }
 }

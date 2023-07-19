@@ -115,6 +115,10 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> HashParams<E, RATE, WIDTH
     fn use_custom_gate(&mut self, custom_gate: CustomGate) {
         self.custom_gate = custom_gate;
     }
+
+    fn try_to_poseidon2_params(&self) -> Option<&crate::poseidon2::Poseidon2Params<E, RATE, WIDTH>> {
+        Some(self)
+    }
 }
 
 fn poseidon2_external_matrix<E: Engine, const WIDTH: usize>() -> [[E::Fr; WIDTH]; WIDTH] {

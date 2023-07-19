@@ -1,6 +1,6 @@
 use crate::{
     common::domain_strategy::DomainStrategy,
-    traits::{HashFamily, HashParams},
+    traits::{HashFamily, HashParams}, poseidon2::Poseidon2Params,
 };
 use franklin_crypto::{
     bellman::plonk::better_better_cs::cs::ConstraintSystem, plonk::circuit::allocated_num::Num,
@@ -332,7 +332,11 @@ pub fn circuit_generic_round_function<
             super::rescue_prime::gadget_rescue_prime_round_function(cs, params, state)
         }
         HashFamily::Poseidon2 => {
-            todo!()
+            super::poseidon2::circuit_poseidon2_round_function(
+                cs, 
+                params.try_to_poseidon2_params().unwrap(), 
+                state
+            )
         }
     }
 }
@@ -360,7 +364,11 @@ pub fn circuit_generic_round_function_conditional<
             super::rescue_prime::gadget_rescue_prime_round_function(cs, params, state)
         }
         HashFamily::Poseidon2 => {
-            todo!()
+            super::poseidon2::circuit_poseidon2_round_function(
+                cs, 
+                params.try_to_poseidon2_params().unwrap(), 
+                state
+            )
         }
     };
 

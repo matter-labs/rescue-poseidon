@@ -73,4 +73,8 @@ pub trait HashParams<E: Engine, const RATE: usize, const WIDTH: usize>:
     fn specialized_affine_transformation_for_round(&self, _state: &mut [E::Fr; WIDTH], _round_constants: &[E::Fr; WIDTH]) {
         unimplemented!("not implemented by default");
     }
+
+    fn try_to_poseidon2_params(&self) -> Option<&crate::poseidon2::Poseidon2Params<E, RATE, WIDTH>> {
+        None
+    }
 }

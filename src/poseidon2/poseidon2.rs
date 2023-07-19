@@ -1,5 +1,5 @@
 use crate::traits::HashParams;
-use franklin_crypto::bellman::{Engine, Field};
+use franklin_crypto::bellman::{Engine, Field, PrimeField};
 use crate::common::domain_strategy::DomainStrategy;
 use super::params::Poseidon2Params;
 use crate::traits::Sbox;
@@ -9,51 +9,14 @@ use crate::traits::Sbox;
 /// length of input and applies a padding rule which makes input size equals to multiple of
 /// rate parameter.
 pub fn poseidon2_hash<
-    E: Engine, 
-    const WIDTH: usize,
-    const RATE: usize,
+    E: Engine,
     const L: usize
 >(input: &[E::Fr; L]) -> [E::Fr; 2] {
-    // const WIDTH: usize = 3;
-    // const RATE: usize = 2;
+    const WIDTH: usize = 3;
+    const RATE: usize = 2;
 
     let params = Poseidon2Params::<E, RATE, WIDTH>::default();
-
-    // init state
-    let mut state = [E::Fr::zero(); WIDTH];
-
-    let domain_strategy = DomainStrategy::FixedLength;
-
-    // specialize capacity
-    let capacity_value = domain_strategy
-        .compute_capacity::<E>(input.len(), RATE)
-        .unwrap_or(E::Fr::zero());
-    *state.last_mut().expect("last element") = capacity_value;
-
-    // compute padding values
-    let padding_values = domain_strategy.generate_padding_values::<E>(input.len(), RATE);
-
-    // chain all values
-    let mut padded_input = smallvec::SmallVec::<[_; 9]>::new();
-    padded_input.extend_from_slice(input);
-    padded_input.extend_from_slice(&padding_values);
-
-    assert!(padded_input.len() % RATE == 0);
-
-    // process each chunk of input
-    for values in padded_input.chunks_exact(RATE) {
-        for (i, s) in values.iter().zip(state.iter_mut()) {
-            s.add_assign(i);
-        }
-        poseidon2_round_function(&mut state, &params);
-    }
-    // prepare output
-    let mut output = [E::Fr::zero(); 2];
-    for (o, s) in output.iter_mut().zip(state[..RATE].iter()) {
-        *o = *s;
-    }
-
-    output
+    crate::generic_hash(&params, input, None)
 }
 
 pub(crate) fn poseidon2_round_function<
@@ -195,6 +158,9 @@ pub(crate) fn poseidon2_matmul_internal<
         2 => {
             // [2, 1]
             // [1, 3]
+            debug_assert_eq!(diag_internal_matrix[0], E::Fr::from_str("2").unwrap());
+            debug_assert_eq!(diag_internal_matrix[1], E::Fr::from_str("3").unwrap());
+
             let mut sum = state[0];
             sum.add_assign(&state[1]);
             state[0].add_assign(&sum);
@@ -205,6 +171,10 @@ pub(crate) fn poseidon2_matmul_internal<
             // [2, 1, 1]
             // [1, 2, 1]
             // [1, 1, 3]
+            debug_assert_eq!(diag_internal_matrix[0], E::Fr::from_str("2").unwrap());
+            debug_assert_eq!(diag_internal_matrix[1], E::Fr::from_str("2").unwrap());
+            debug_assert_eq!(diag_internal_matrix[2], E::Fr::from_str("3").unwrap());
+
             let mut sum = state[0];
             sum.add_assign(&state[1]);
             sum.add_assign(&state[2]);
@@ -221,9 +191,11 @@ pub(crate) fn poseidon2_matmul_internal<
                 .skip(1)
                 .take(WIDTH-1)
                 .for_each(|el| sum.add_assign(el));
-            // Add sum + diag entry * element to each element
+            // Add sum + (diag entry - 1) * element to each element
             for i in 0..WIDTH {
-                state[i].mul_assign(&diag_internal_matrix[i]);
+                let mut coeff = diag_internal_matrix[i];
+                coeff.sub_assign(&E::Fr::one());
+                state[i].mul_assign(&coeff);
                 state[i].add_assign(&sum);
             }
         }
@@ -239,7 +211,7 @@ pub(crate) fn apply_sbox<
     elements: &mut [E::Fr],
     sbox: &Sbox
 ) {
-    assert!(sbox == &Sbox::Alpha(5));
+    debug_assert!(sbox == &Sbox::Alpha(5));
 
     for element in elements.iter_mut() {
         let mut res = *element;

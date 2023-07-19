@@ -1,11 +1,16 @@
 use boojum::field::goldilocks::GoldilocksField;
-use franklin_crypto::bellman::{pairing::bn256::{Bn256, Fr}, plonk::commitments};
+use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
+use franklin_crypto::plonk::circuit::{allocated_num::Num, linear_combination::LinearCombination};
 use boojum::algebraic_props::round_function::AbsorptionModeTrait;
 use boojum::field::SmallField;
 use boojum::field::U64Representable;
 use rand::Rand;
 use rand::Rng;
-use boojum::field::rand_from_rng;
+use crate::tests::init_cs;
+
+use crate::poseidon::{poseidon_hash, poseidon_round_function};
+use crate::poseidon2::{poseidon2_hash, poseidon2_round_function};
+use crate::circuit::poseidon2::{circuit_poseidon2_round_function, circuit_poseidon2_hash};
 
 use super::Poseidon2Sponge;
 
@@ -45,9 +50,6 @@ fn test_different_absorbtions() {
 
 #[test]
 fn test_vs_poseidon() {
-    use crate::poseidon::{poseidon_hash, poseidon_round_function};
-    use crate::poseidon2::{poseidon2_hash, poseidon2_round_function};
-
     const NUM_ELEMENTS: usize = 10000;
     let mut rng = rand::thread_rng();
     let buffer = [0; NUM_ELEMENTS].map(|_| Fr::rand(&mut rng));
@@ -57,10 +59,9 @@ fn test_vs_poseidon() {
     poseidon_hash::<Bn256, NUM_ELEMENTS>(&buffer);
     dbg!(start.elapsed());
 
-    // hash by poseidon2 
-    // 61% better performance
+    // hash by poseidon2
     let start = std::time::Instant::now();
-    poseidon2_hash::<Bn256, 3, 2, NUM_ELEMENTS>(&buffer);
+    poseidon2_hash::<Bn256, NUM_ELEMENTS>(&buffer);
     dbg!(start.elapsed());
 
     let mut buffer = buffer.to_vec();
@@ -75,7 +76,6 @@ fn test_vs_poseidon() {
     dbg!(start.elapsed());
 
     // round functions by poseidon2
-    // 51% better performance
     let params = crate::poseidon2::Poseidon2Params::<Bn256, 2, 3>::default();
 
     let start = std::time::Instant::now();
@@ -122,4 +122,41 @@ fn test_of_sponge_state() {
 
     dbg!(&hash.finalize());
     dbg!(&hash);
+}
+
+#[test]
+fn test_circuit_round_function() {
+    let params = crate::poseidon2::Poseidon2Params::<Bn256, 2, 3>::default();
+
+    let cs = &mut init_cs::<Bn256>();
+
+    let mut rng = rand::thread_rng();
+    let mut state = [0; 3].map(|_| Fr::rand(&mut rng));
+    let mut circuit_state = state.map(|x| Num::alloc(cs, Some(x)).unwrap().into());
+
+    // out of circuit round function
+    poseidon2_round_function::<Bn256, 2, 3>(&mut state, &params);
+
+    // circuit round function
+    circuit_poseidon2_round_function(cs, &params, &mut circuit_state).unwrap();
+
+    assert_eq!(state, circuit_state.map(|x| x.get_value().unwrap()));
+}
+
+#[test]
+fn test_circuit_hash() {
+    let cs = &mut init_cs::<Bn256>();
+
+    const NUM_ELEMENTS: usize = 10;
+    let mut rng = rand::thread_rng();
+    let buffer = [0; NUM_ELEMENTS].map(|_| Fr::rand(&mut rng));
+    let num_buffer = buffer.map(|x| Num::alloc(cs, Some(x)).unwrap());
+
+    // out of circuit round function
+    let hash1 = poseidon2_hash::<Bn256, NUM_ELEMENTS>(&buffer);
+
+    // circuit round function
+    let hash2 = circuit_poseidon2_hash(cs, &num_buffer, None).unwrap();
+
+    assert_eq!(hash1, hash2.map(|x| x.get_value().unwrap()));
 }
