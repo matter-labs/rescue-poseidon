@@ -1,4 +1,3 @@
-use franklin_crypto::bellman::{Engine, Field};
 use super::*;
 
 use derivative::*;
@@ -6,8 +5,9 @@ use derivative::*;
 use boojum::field::SmallField;
 use boojum::cs::traits::GoodAllocator;
 use boojum::algebraic_props::round_function::AbsorptionModeTrait;
-use franklin_crypto::bellman::{PrimeField, PrimeFieldRepr};
 use boojum::cs::implementations::transcript::Transcript;
+
+use franklin_crypto::bellman::{Engine, Field, PrimeField, PrimeFieldRepr};
 
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
@@ -69,7 +69,10 @@ impl<
     fn witness_field_elements(&mut self, field_els: &[F]) {
         let capasity_per_element = Poseidon2Sponge::<E, F, M, RATE, WIDTH>::capasity_per_element();
         debug_assert!(self.last_filled < capasity_per_element);
-        let add_to_last = (capasity_per_element - self.last_filled) % capasity_per_element;
+        
+        let add_to_last = field_els.len().min(
+            (capasity_per_element - self.last_filled) % capasity_per_element
+        );
 
         if add_to_last != 0 {
             let mut repr_to_add = <E::Fr as PrimeField>::Repr::default();

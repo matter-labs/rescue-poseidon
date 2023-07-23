@@ -192,7 +192,7 @@ fn poseidon2_internal_matrix<E: Engine, const WIDTH: usize>() -> [E::Fr; WIDTH] 
             result[1] = two;
             result[2] = three;
         },
-        _ => todo!("poseidon_2_internal_matrix for WIDTH != 3"),
+        _ => todo!("poseidon_2_internal_matrix for WIDTH == {}", WIDTH),
     };
 
     result
