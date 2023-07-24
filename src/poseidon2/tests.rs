@@ -1,9 +1,11 @@
+use boojum::cs::implementations::pow::PoWRunner;
 use boojum::field::goldilocks::GoldilocksField;
 use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
 use franklin_crypto::plonk::circuit::{allocated_num::Num, linear_combination::LinearCombination};
 use boojum::algebraic_props::round_function::AbsorptionModeTrait;
 use boojum::field::SmallField;
 use boojum::field::U64Representable;
+use boojum::worker::Worker;
 use rand::Rand;
 use rand::Rng;
 use crate::tests::init_cs;
@@ -159,4 +161,19 @@ fn test_circuit_hash() {
     let hash2 = circuit_poseidon2_hash(cs, &num_buffer, None).unwrap();
 
     assert_eq!(hash1, hash2.map(|x| x.get_value().unwrap()));
+}
+
+#[test]
+fn test_pow_runner() {
+    let worker = Worker::new();
+    let mut rng = rand::thread_rng();
+    let buffer: Vec<_> = (0..4).map(|_| GoldilocksField::from_u64_unchecked(rng.gen_range(0, GoldilocksField::CHAR))).collect();
+
+    let challenge = Poseidon2Sponge::<Bn256, GoldilocksField, TestingAbsorption, 2, 3>::run_from_field_elements(
+        buffer,
+        8,
+        &worker
+    );
+
+    dbg!(challenge);
 }
