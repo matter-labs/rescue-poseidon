@@ -27,7 +27,7 @@ pub fn circuit_poseidon2_hash<E: Engine, CS: ConstraintSystem<E>, const L: usize
     circuit_generic_hash_num(cs, input, &params, domain_strategy)
 }
 
-pub(crate) fn circuit_poseidon2_round_function<
+pub fn circuit_poseidon2_round_function<
     E: Engine,
     CS: ConstraintSystem<E>,
     const RATE: usize,

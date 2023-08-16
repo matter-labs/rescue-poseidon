@@ -227,13 +227,14 @@ impl<
     #[inline]
     fn hash_into_leaf<'a, S: IntoIterator<Item = &'a F>>(source: S) -> Self::Output
     where
-        F: 'a {
-            let mut hasher = Self::new();
+        F: 'a 
+    {
+        let mut hasher = Self::new();
 
-            for el in source.into_iter() {
-                hasher.absorb_single_small_field(el);
-            }
-            hasher.finalize()[0]
+        for el in source.into_iter() {
+            hasher.absorb_single_small_field(el);
+        }
+        hasher.finalize()[0]
     }
 
     #[inline]

@@ -1,6 +1,6 @@
 #![feature(allocator_api)]
 
-mod circuit;
+pub mod circuit;
 #[allow(dead_code)]
 mod common;
 mod sponge;

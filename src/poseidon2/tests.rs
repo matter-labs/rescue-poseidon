@@ -171,7 +171,7 @@ fn test_pow_runner() {
 
     let challenge = Poseidon2Sponge::<Bn256, GoldilocksField, TestingAbsorption, 2, 3>::run_from_field_elements(
         buffer,
-        8,
+        24,
         &worker
     );
 
