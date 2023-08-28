@@ -44,7 +44,7 @@ impl<
 
         if pow_bits <= BN256_POSEIDON2_ROUNDS_PER_INVOCAITON.trailing_zeros() {
             // serial case
-            boojum::log!("Do serial PoW");
+            log::info!("Do serial PoW");
             for challenge in 0u64..(BN256_POSEIDON2_NO_RESULT - 1) {
                 // we expect somewhat "good" hash distribution
                 let mut new_transcript = base_transcript.clone();
@@ -67,7 +67,7 @@ impl<
 
         let result = std::sync::Arc::new(AtomicU64::new(BN256_POSEIDON2_NO_RESULT));
 
-        boojum::log!("Do parallel PoW");
+        log::info!("Do parallel PoW");
 
         let pow_rounds_per_invocation = BN256_POSEIDON2_ROUNDS_PER_INVOCAITON as u64;
         // it's good to parallelize
