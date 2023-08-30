@@ -98,7 +98,7 @@ impl<
         self.last_filled = (self.last_filled + field_els.len()) % capasity_per_element;
     }
 
-    fn witness_merkle_tree_cap<A: GoodAllocator>(&mut self, cap: &Vec<Self::CompatibleCap, A>) {
+    fn witness_merkle_tree_cap(&mut self, cap: &[Self::CompatibleCap]) {
         self.last_filled = 0;
         self.buffer.extend_from_slice(cap);
     }
