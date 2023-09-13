@@ -30,12 +30,12 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> PartialEq
 
 impl<E: Engine, const RATE: usize, const WIDTH: usize> Default for Poseidon2Params<E, RATE, WIDTH> {
     fn default() -> Self {
-        let security_level = 80; // TODO: check
+        let security_level = 80; // TODO: check, but we actually don't use it anywhere
 
         // Number of rounds from the original Poseidon2 implementation
         // https://github.com/HorizenLabs/poseidon2
         let full_rounds = 8;
-        let partial_rounds = 33;
+        let partial_rounds = 56;
 
         let mut params = InnerHashParameters::<E, RATE, WIDTH>::new(security_level, full_rounds, partial_rounds);
 
