@@ -60,7 +60,7 @@ impl<E: Engine, const RATE: usize, const WIDTH: usize> Default for Poseidon2Para
             alpha: Sbox::Alpha(alpha),
             full_rounds: params.full_rounds,
             partial_rounds: params.partial_rounds,
-            custom_gate: CustomGate::None,
+            custom_gate: CustomGate::QuinticWidth4,
 
             mds_external_matrix,
             diag_internal_matrix,
