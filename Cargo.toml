@@ -30,7 +30,7 @@ rayon = {version = "1.5", optional = true}
 lazy_static = {version = "1.4", optional = true}
 futures = {version = "*", features = ["executor", "thread-pool"], optional = true}
 arrayvec = "0.7"
-log = "0.4.20"
+log = "0.4.19"
 
 [dev-dependencies]
 # reference poseidon does not uses specialization so some tests will fail.
