@@ -9,6 +9,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+          # Remove default `-D warnings`.
+          rustflags: ""
       - run: cargo build --verbose
       - run: cargo test --verbose --all
 
