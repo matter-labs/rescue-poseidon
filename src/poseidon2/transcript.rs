@@ -6,6 +6,7 @@ use boojum::field::SmallField;
 use boojum::cs::traits::GoodAllocator;
 use boojum::algebraic_props::round_function::AbsorptionModeTrait;
 use boojum::cs::implementations::transcript::Transcript;
+use std::collections::VecDeque;
 
 use franklin_crypto::bellman::{Engine, Field, PrimeField, PrimeFieldRepr};
 
@@ -20,7 +21,7 @@ pub struct Poseidon2Transcript<
 > {
     buffer: Vec<E::Fr>,
     last_filled: usize,
-    available_challenges: Vec<F>,
+    available_challenges: VecDeque<F>,
     #[derivative(Debug = "ignore")]
     sponge: Poseidon2Sponge<E, F, M, RATE, WIDTH>,
 }
@@ -36,7 +37,7 @@ impl<
         Self {
             buffer: Vec::new(),
             last_filled: 0,
-            available_challenges: Vec::new(),
+            available_challenges: VecDeque::new(),
             sponge: Poseidon2Sponge::<E, F, M, RATE, WIDTH>::new(),
         }
     }
@@ -58,7 +59,7 @@ impl<
         Self {
             buffer: Vec::new(),
             last_filled: 0,
-            available_challenges: Vec::new(),
+            available_challenges: VecDeque::new(),
             sponge: Poseidon2Sponge::<E, F, M, RATE, WIDTH>::new(),
         }
     }
@@ -94,14 +95,14 @@ impl<
 
         self.last_filled = (self.last_filled + field_els.len()) % capasity_per_element;
 
-        self.available_challenges = vec![];
+        self.available_challenges = VecDeque::new();
     }
 
     fn witness_merkle_tree_cap(&mut self, cap: &[Self::CompatibleCap]) {
         self.last_filled = 0;
         self.buffer.extend_from_slice(cap);
 
-        self.available_challenges = vec![];
+        self.available_challenges = VecDeque::new();
     }
 
     fn get_challenge(&mut self) -> F {
@@ -109,9 +110,7 @@ impl<
 
         if self.buffer.is_empty() {
             if self.available_challenges.len() > 0 {
-                let first_el = self.available_challenges.first().unwrap().clone();
-                self.available_challenges.drain(..1);
-                return first_el;
+                return self.available_challenges.pop_front().unwrap();
             } else {
                 self.sponge.run_round_function();
 
@@ -133,7 +132,7 @@ impl<
         self.sponge.absorb(&to_absorb);
         self.last_filled = 0;
 
-        self.available_challenges = vec![];
+        self.available_challenges = VecDeque::new();
         let commitment = self.sponge.finalize();
         for &el in commitment.iter() {
             self.available_challenges.extend(get_challenges_from_fr::<E, F>(el));
