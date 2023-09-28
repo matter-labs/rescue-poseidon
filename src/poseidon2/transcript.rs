@@ -6,6 +6,7 @@ use boojum::field::SmallField;
 use boojum::cs::traits::GoodAllocator;
 use boojum::algebraic_props::round_function::AbsorptionModeTrait;
 use boojum::cs::implementations::transcript::Transcript;
+use std::collections::VecDeque;
 
 use franklin_crypto::bellman::{Engine, Field, PrimeField, PrimeFieldRepr};
 
@@ -20,8 +21,7 @@ pub struct Poseidon2Transcript<
 > {
     buffer: Vec<E::Fr>,
     last_filled: usize,
-    available_challenges: Vec<E::Fr>,
-    challenges_taken: usize,
+    available_challenges: VecDeque<F>,
     #[derivative(Debug = "ignore")]
     sponge: Poseidon2Sponge<E, F, M, RATE, WIDTH>,
 }
@@ -37,8 +37,7 @@ impl<
         Self {
             buffer: Vec::new(),
             last_filled: 0,
-            available_challenges: Vec::new(),
-            challenges_taken: 0,
+            available_challenges: VecDeque::new(),
             sponge: Poseidon2Sponge::<E, F, M, RATE, WIDTH>::new(),
         }
     }
@@ -60,8 +59,7 @@ impl<
         Self {
             buffer: Vec::new(),
             last_filled: 0,
-            available_challenges: Vec::new(),
-            challenges_taken: 0,
+            available_challenges: VecDeque::new(),
             sponge: Poseidon2Sponge::<E, F, M, RATE, WIDTH>::new(),
         }
     }
@@ -77,7 +75,7 @@ impl<
         if add_to_last != 0 {
             let mut repr_to_add = <E::Fr as PrimeField>::Repr::default();
             for (i, el) in field_els[..add_to_last].iter().enumerate() {
-                let mut value_repr = <E::Fr as PrimeField>::Repr::from(el.as_u64());
+                let mut value_repr = <E::Fr as PrimeField>::Repr::from(el.as_u64_reduced());
                 value_repr.shl((i * F::CHAR_BITS) as u32);
                 repr_to_add.add_nocarry(&value_repr);
             }
@@ -88,7 +86,7 @@ impl<
         for chunk in field_els[add_to_last..].chunks(capasity_per_element) {
             let mut repr = <E::Fr as PrimeField>::Repr::default();
             for (i, el) in chunk.iter().enumerate() {
-                let mut value_repr = <E::Fr as PrimeField>::Repr::from(el.as_u64());
+                let mut value_repr = <E::Fr as PrimeField>::Repr::from(el.as_u64_reduced());
                 value_repr.shl((i * F::CHAR_BITS) as u32);
                 repr.add_nocarry(&value_repr);
             }
@@ -96,11 +94,15 @@ impl<
         }
 
         self.last_filled = (self.last_filled + field_els.len()) % capasity_per_element;
+
+        self.available_challenges = VecDeque::new();
     }
 
     fn witness_merkle_tree_cap(&mut self, cap: &[Self::CompatibleCap]) {
         self.last_filled = 0;
         self.buffer.extend_from_slice(cap);
+
+        self.available_challenges = VecDeque::new();
     }
 
     fn get_challenge(&mut self) -> F {
@@ -108,29 +110,19 @@ impl<
 
         if self.buffer.is_empty() {
             if self.available_challenges.len() > 0 {
-                let first_el = self.available_challenges.first().unwrap().into_repr();
-                let next_challenge;
-
-                if F::CHAR_BITS <= 64 {
-                    next_challenge = F::from_u64_with_reduction(first_el.as_ref()[self.challenges_taken]);
-                    self.challenges_taken += 1;
-                } else {
-                    todo!("Goldilocks has less than 64 bits per element");
-                }
-
-                if self.challenges_taken == Poseidon2Sponge::<E, F, M, RATE, WIDTH>::capasity_per_element() {
-                    self.available_challenges.drain(..1);
-                    self.challenges_taken = 0;
-                }
-
-                return next_challenge;
+                return self.available_challenges.pop_front().unwrap();
             } else {
                 self.sponge.run_round_function();
-                let new_set = self
-                    .sponge
-                    .try_get_committment()
-                    .expect("must have no pending elements in the buffer");
-                self.available_challenges = new_set.to_vec();
+
+                {
+                    let commitment = self
+                        .sponge
+                        .try_get_committment()
+                        .expect("must have no pending elements in the buffer");
+                    for &el in commitment.iter() {
+                        self.available_challenges.extend(get_challenges_from_fr::<E, F>(el));
+                    }
+                }
 
                 return self.get_challenge();
             }
@@ -138,11 +130,29 @@ impl<
 
         let to_absorb = std::mem::replace(&mut self.buffer, vec![]);
         self.sponge.absorb(&to_absorb);
+        self.last_filled = 0;
 
-        let committment = self.sponge.finalize();
-        self.available_challenges = committment.to_vec();
+        self.available_challenges = VecDeque::new();
+        let commitment = self.sponge.finalize();
+        for &el in commitment.iter() {
+            self.available_challenges.extend(get_challenges_from_fr::<E, F>(el));
+        }
 
         // to avoid duplication
         self.get_challenge()
     }
+}
+
+fn get_challenges_from_fr<E: Engine, F: SmallField>(
+    scalar_element: E::Fr,
+) -> Vec<F> {
+    assert!(F::CHAR_BITS <= 64, "Goldilocks has less than 64 bits per element");
+    let num_challenges = (E::Fr::CAPACITY as usize) / (F::CHAR_BITS as usize);
+
+    scalar_element.into_repr()
+        .as_ref()[..num_challenges]
+        .iter()
+        .map(|x|
+            F::from_u64_with_reduction(*x)
+        ).collect()
 }
