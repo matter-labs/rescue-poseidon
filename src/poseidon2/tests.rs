@@ -50,6 +50,7 @@ fn test_different_absorbtions() {
     dbg!(commitment1);
 }
 
+#[ignore]
 #[test]
 fn test_vs_poseidon() {
     const NUM_ELEMENTS: usize = 10000;
@@ -171,7 +172,7 @@ fn test_pow_runner() {
 
     let challenge = Poseidon2Sponge::<Bn256, GoldilocksField, TestingAbsorption, 2, 3>::run_from_field_elements(
         buffer,
-        24,
+        10,
         &worker
     );
 

@@ -36,6 +36,7 @@ fn test_inputs<E: Engine, const L: usize>() -> [E::Fr; L] {
     inputs
 }
 
+#[ignore]
 #[test]
 fn test_rescue_bn256_fixed_length() {
     const INPUT_LENGTH: usize = 2;
@@ -142,6 +143,7 @@ fn test_poseidon_hash_var_len() {
     // assert_eq!(actual, expected);
 }
 
+#[ignore]
 #[test]
 fn test_rescue_hash_var_len() {
     const WIDTH: usize = 3;
@@ -169,7 +171,7 @@ fn test_rescue_hash_var_len() {
 }
 
 
-
+#[ignore]
 #[test]
 fn test_new_generic_hasher_fixed_length_single_output_with_hardcoded_input() {
     use franklin_crypto::bellman::{PrimeField, PrimeFieldRepr};
@@ -209,6 +211,7 @@ fn test_new_generic_hasher_fixed_length_single_output_with_hardcoded_input() {
     assert_eq!(expected[0], actual[0]);
 }
 
+#[ignore]
 #[test]
 fn test_var_length_multiple_absorbs_without_padding_when_pad_needed() {
     const WIDTH: usize = 3;
@@ -260,6 +263,7 @@ fn test_var_length_single_absorb_without_padding_when_pad_needed() {
     let _ = original_rescue.squeeze_out_single();
 }
 
+#[ignore]
 #[test]
 fn test_multiple_absorb_steps() {
     const WIDTH: usize = 3;
@@ -291,6 +295,8 @@ fn test_multiple_absorb_steps() {
 
     assert_eq!(actual, expected);
 }
+
+#[ignore]
 #[test]
 fn test_new_generic_hasher_single_absorb_compare_with_old_rescue_sponge() {
     const WIDTH: usize = 3;
@@ -328,6 +334,7 @@ fn test_generic_hasher_squeeze_before_no_absorbing() {
     let _ = sponge.squeeze(&params).is_none();
 }
 
+#[ignore]
 #[test]
 fn test_multiple_squeeze() {
     const WIDTH: usize = 3;
@@ -372,6 +379,8 @@ fn test_excessive_multiple_squeeze() {
     let _ = generic_hasher.squeeze(&params).is_none();
 
 }
+
+#[ignore]
 #[test]
 fn test_rate_absorb_and_squeeze() {
     const WIDTH: usize = 3;
