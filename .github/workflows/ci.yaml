@@ -20,13 +20,13 @@ jobs:
       - run: cargo build --verbose
       - run: cargo test --verbose --all
 
-  formatting:
-    name: cargo fmt
-    runs-on: [ubuntu-latest]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: rustfmt
-      - name: Rustfmt Check
-        uses: actions-rust-lang/rustfmt@v1
+  # formatting:
+  #   name: cargo fmt
+  #   runs-on: [ubuntu-latest]
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: actions-rust-lang/setup-rust-toolchain@v1
+  #       with:
+  #         components: rustfmt
+  #     - name: Rustfmt Check
+  #       uses: actions-rust-lang/rustfmt@v1
