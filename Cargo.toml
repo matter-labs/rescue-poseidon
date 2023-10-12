@@ -13,8 +13,6 @@ derivative = "2"
 
 franklin_crypto = {package = "franklin-crypto", features = ["plonk"], git = "https://github.com/matter-labs/franklin-crypto", branch = "snark_wrapper"}
 # franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
-boojum = {git = "https://github.com/matter-labs/era-boojum.git", branch = "main"}
-# boojum = { path = "../boojum" }
 num-bigint = "0.3"
 num-integer = "0.1"
 num-iter = "0.1"

@@ -2,10 +2,10 @@ use super::*;
 
 use derivative::*;
 
-use boojum::field::SmallField;
-use boojum::cs::traits::GoodAllocator;
-use boojum::algebraic_props::round_function::AbsorptionModeTrait;
-use boojum::cs::implementations::transcript::Transcript;
+use franklin_crypto::boojum::field::SmallField;
+use franklin_crypto::boojum::cs::traits::GoodAllocator;
+use franklin_crypto::boojum::algebraic_props::round_function::AbsorptionModeTrait;
+use franklin_crypto::boojum::cs::implementations::transcript::Transcript;
 use std::collections::VecDeque;
 
 use franklin_crypto::bellman::{Engine, Field, PrimeField, PrimeFieldRepr};

@@ -1,9 +1,9 @@
 use super::*;
 
-use boojum::{worker::Worker, pairing::bls12_381::Fr};
-use boojum::algebraic_props::round_function::AbsorptionModeTrait;
-use boojum::field::SmallField;
-use boojum::cs::implementations::pow::PoWRunner;
+use franklin_crypto::boojum::{worker::Worker, pairing::bls12_381::Fr};
+use franklin_crypto::boojum::algebraic_props::round_function::AbsorptionModeTrait;
+use franklin_crypto::boojum::field::SmallField;
+use franklin_crypto::boojum::cs::implementations::pow::PoWRunner;
 
 use franklin_crypto::bellman::{Engine, Field, PrimeField, PrimeFieldRepr};
 

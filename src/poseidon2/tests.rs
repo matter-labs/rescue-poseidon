@@ -1,11 +1,11 @@
-use boojum::cs::implementations::pow::PoWRunner;
-use boojum::field::goldilocks::GoldilocksField;
+use franklin_crypto::boojum::cs::implementations::pow::PoWRunner;
+use franklin_crypto::boojum::field::goldilocks::GoldilocksField;
 use franklin_crypto::bellman::pairing::bn256::{Bn256, Fr};
 use franklin_crypto::plonk::circuit::{allocated_num::Num, linear_combination::LinearCombination};
-use boojum::algebraic_props::round_function::AbsorptionModeTrait;
-use boojum::field::SmallField;
-use boojum::field::U64Representable;
-use boojum::worker::Worker;
+use franklin_crypto::boojum::algebraic_props::round_function::AbsorptionModeTrait;
+use franklin_crypto::boojum::field::SmallField;
+use franklin_crypto::boojum::field::U64Representable;
+use franklin_crypto::boojum::worker::Worker;
 use rand::Rand;
 use rand::Rng;
 use crate::tests::init_cs;
