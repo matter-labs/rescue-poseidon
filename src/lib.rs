@@ -26,6 +26,7 @@ pub use rescue::{params::RescueParams, rescue_hash};
 pub use rescue_prime::{params::RescuePrimeParams, rescue_prime_hash};
 pub use common::domain_strategy::DomainStrategy;
 
+pub extern crate franklin_crypto;
 
 pub trait BigArraySerde<'de>: Sized {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

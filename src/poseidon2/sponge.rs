@@ -1,10 +1,10 @@
 use super::*;
 
 use derivative::*;
-use boojum::field::SmallField;
-use boojum::cs::oracle::TreeHasher;
+use franklin_crypto::boojum::field::SmallField;
+use franklin_crypto::boojum::cs::oracle::TreeHasher;
 use franklin_crypto::bellman::{Engine, Field, PrimeField, PrimeFieldRepr};
-use boojum::algebraic_props::round_function::AbsorptionModeTrait;
+use franklin_crypto::boojum::algebraic_props::round_function::AbsorptionModeTrait;
 
 
 #[derive(Derivative)]
