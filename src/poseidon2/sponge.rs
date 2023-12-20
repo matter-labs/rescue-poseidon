@@ -79,7 +79,7 @@ impl<
         let pos = self.filled / capasity_per_element;
         let exp = self.filled % capasity_per_element;
 
-        let mut value_repr = <E::Fr as PrimeField>::Repr::from(value.as_u64());
+        let mut value_repr = <E::Fr as PrimeField>::Repr::from(value.as_u64_reduced());
         value_repr.shl((exp * F::CHAR_BITS) as u32);
 
         self.buffer[pos].add_assign(&E::Fr::from_repr(value_repr).unwrap());
