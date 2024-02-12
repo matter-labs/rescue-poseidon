@@ -6,6 +6,12 @@ use franklin_crypto::boojum::cs::oracle::TreeHasher;
 use franklin_crypto::bellman::{Engine, Field, PrimeField, PrimeFieldRepr};
 use franklin_crypto::boojum::algebraic_props::round_function::AbsorptionModeTrait;
 
+use typemap_rev::{TypeMap, TypeMapKey};
+use std::sync::Mutex;
+
+impl<E: Engine, const RATE: usize, const WIDTH: usize> TypeMapKey for Poseidon2Params::<E, RATE, WIDTH> {
+    type Value = Poseidon2Params::<E, RATE, WIDTH>;
+}
 
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
@@ -34,7 +40,19 @@ impl<
     pub fn new() -> Self {
         assert!(Self::capasity_per_element() > 0);
 
-        let params = Poseidon2Params::<E, RATE, WIDTH>::default();
+        lazy_static::lazy_static!{
+            static ref POSEIDON_PARAMS: Mutex<TypeMap> = Mutex::new(TypeMap::new());
+        };
+
+        let mut static_params = POSEIDON_PARAMS.lock().unwrap();
+
+        let params;
+        if static_params.contains_key::<Poseidon2Params<E, RATE, WIDTH>>() {
+            params = static_params.get::<Poseidon2Params<E, RATE, WIDTH>>().unwrap().clone();
+        } else {
+            params = Poseidon2Params::<E, RATE, WIDTH>::default();
+            static_params.insert::<Poseidon2Params<E, RATE, WIDTH>>(params.clone());
+        }
 
         Self {
             params,
@@ -249,7 +267,20 @@ impl<
 
     #[inline]
     fn hash_into_node(left: &Self::Output, right: &Self::Output, _depth: usize) -> Self::Output {
-        let params = Poseidon2Params::<E, RATE, WIDTH>::default();
+        lazy_static::lazy_static!{
+            static ref POSEIDON_PARAMS: Mutex<TypeMap> = Mutex::new(TypeMap::new());
+        };
+
+        let mut static_params = POSEIDON_PARAMS.lock().unwrap();
+
+        let params;
+        if static_params.contains_key::<Poseidon2Params<E, RATE, WIDTH>>() {
+            params = static_params.get::<Poseidon2Params<E, RATE, WIDTH>>().unwrap().clone();
+        } else {
+            params = Poseidon2Params::<E, RATE, WIDTH>::default();
+            static_params.insert::<Poseidon2Params<E, RATE, WIDTH>>(params.clone());
+        }
+
         let mut state = [E::Fr::zero(); WIDTH];
         M::absorb(&mut state[0], left);
         M::absorb(&mut state[1], right);

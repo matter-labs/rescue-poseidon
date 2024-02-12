@@ -11,6 +11,8 @@ edition = "2021"
 [dependencies]
 derivative = "2"
 
+typemap_rev = "*"
+lazy_static = "1.4"
 franklin_crypto = {package = "franklin-crypto", features = ["plonk"], git = "https://github.com/matter-labs/franklin-crypto", branch = "snark_wrapper"}
 # franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
 num-bigint = "0.3"
@@ -25,7 +27,7 @@ addchain = "0.2"
 smallvec = "1.9"
 blake2 = "0.10"
 rayon = {version = "1.5", optional = true}
-lazy_static = {version = "1.4", optional = true}
+# lazy_static = {version = "1.4", optional = true}
 futures = {version = "*", features = ["executor", "thread-pool"], optional = true}
 arrayvec = "0.7"
 log = "0.4.19"
@@ -51,7 +53,7 @@ hex = "0.4"
 [features]
 default = []
 rayon = ["dep:rayon"]
-futures = ["dep:lazy_static", "dep:futures"]
+futures = ["dep:futures"]
 
 [[bench]]
 name = "benches"
