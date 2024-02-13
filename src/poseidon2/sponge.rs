@@ -7,10 +7,10 @@ use franklin_crypto::bellman::{Engine, Field, PrimeField, PrimeFieldRepr};
 use franklin_crypto::boojum::algebraic_props::round_function::AbsorptionModeTrait;
 
 use typemap_rev::{TypeMap, TypeMapKey};
-use std::sync::Mutex;
+use std::sync::{Arc, RwLock};
 
 impl<E: Engine, const RATE: usize, const WIDTH: usize> TypeMapKey for Poseidon2Params::<E, RATE, WIDTH> {
-    type Value = Poseidon2Params::<E, RATE, WIDTH>;
+    type Value = Arc<Poseidon2Params::<E, RATE, WIDTH>>;
 }
 
 #[derive(Derivative)]
@@ -26,7 +26,7 @@ pub struct Poseidon2Sponge<
     pub(crate) buffer: [E::Fr; RATE],
     pub(crate) filled: usize,
     #[derivative(Debug = "ignore")]
-    pub(crate) params: Poseidon2Params<E, RATE, WIDTH>,
+    pub(crate) params: Arc<Poseidon2Params<E, RATE, WIDTH>>,
     _marker: std::marker::PhantomData<(F, M)>,
 }
 
@@ -41,18 +41,21 @@ impl<
         assert!(Self::capasity_per_element() > 0);
 
         lazy_static::lazy_static!{
-            static ref POSEIDON_PARAMS: Mutex<TypeMap> = Mutex::new(TypeMap::new());
+            static ref POSEIDON_PARAMS: RwLock<TypeMap> = RwLock::new(TypeMap::new());
         };
 
-        let mut static_params = POSEIDON_PARAMS.lock().unwrap();
+        let static_params = POSEIDON_PARAMS.read().unwrap();
+        let params = static_params.get::<Poseidon2Params<E, RATE, WIDTH>>().map(|p| p.clone());
+        drop(static_params);
 
-        let params;
-        if static_params.contains_key::<Poseidon2Params<E, RATE, WIDTH>>() {
-            params = static_params.get::<Poseidon2Params<E, RATE, WIDTH>>().unwrap().clone();
+        let params = if let Some(params) = params {
+            params
         } else {
-            params = Poseidon2Params::<E, RATE, WIDTH>::default();
+            let params = Arc::new(Poseidon2Params::<E, RATE, WIDTH>::default());
+            let mut static_params = POSEIDON_PARAMS.write().unwrap();
             static_params.insert::<Poseidon2Params<E, RATE, WIDTH>>(params.clone());
-        }
+            params
+        };
 
         Self {
             params,
@@ -268,24 +271,27 @@ impl<
     #[inline]
     fn hash_into_node(left: &Self::Output, right: &Self::Output, _depth: usize) -> Self::Output {
         lazy_static::lazy_static!{
-            static ref POSEIDON_PARAMS: Mutex<TypeMap> = Mutex::new(TypeMap::new());
+            static ref POSEIDON_PARAMS: RwLock<TypeMap> = RwLock::new(TypeMap::new());
         };
 
-        let mut static_params = POSEIDON_PARAMS.lock().unwrap();
+        let static_params = POSEIDON_PARAMS.read().unwrap();
+        let params = static_params.get::<Poseidon2Params<E, RATE, WIDTH>>().map(|p| p.clone());
+        drop(static_params);
 
-        let params;
-        if static_params.contains_key::<Poseidon2Params<E, RATE, WIDTH>>() {
-            params = static_params.get::<Poseidon2Params<E, RATE, WIDTH>>().unwrap().clone();
+        let params = if let Some(params) = params {
+            params
         } else {
-            params = Poseidon2Params::<E, RATE, WIDTH>::default();
+            let params = Arc::new(Poseidon2Params::<E, RATE, WIDTH>::default());
+            let mut static_params = POSEIDON_PARAMS.write().unwrap();
             static_params.insert::<Poseidon2Params<E, RATE, WIDTH>>(params.clone());
-        }
+            params
+        };
 
         let mut state = [E::Fr::zero(); WIDTH];
         M::absorb(&mut state[0], left);
         M::absorb(&mut state[1], right);
 
-        poseidon2_round_function(&mut state, &params);
+        poseidon2_round_function(&mut state, params.as_ref());
 
         state[0]
     }
