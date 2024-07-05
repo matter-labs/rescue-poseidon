@@ -1,7 +1,8 @@
 [package]
 name = "rescue_poseidon"
 description = "Sponge construction based Algebraic Hash Functions"
-keywords = ["poseidon", "rescue", "rescue prime", "sponge", "duplex sponge", "algebraic hash function", "arithmetization oriented hash function"]
+keywords = ["poseidon", "rescue", "sponge"]
+license = "MIT OR Apache-2.0"
 version = "0.4.1"
 authors = ["Sait Imamoglu <si@matterlabs.dev>"]
 edition = "2021"
@@ -10,8 +11,7 @@ edition = "2021"
 
 [dependencies]
 
-franklin_crypto = {package = "franklin-crypto", features = ["plonk"], git = "https://github.com/matter-labs/franklin-crypto", branch = "dev"}
-# franklin_crypto = {package = "franklin-crypto", features = ["plonk"], path = "../franklin-crypto"}
+franklin_crypto = {package = "franklin-crypto", features = ["plonk"], version = "=0.1.0" }
 num-bigint = "0.3"
 num-integer = "0.1"
 num-iter = "0.1"
@@ -25,7 +25,7 @@ smallvec = "1.9"
 blake2 = "0.10"
 rayon = {version = "1.5", optional = true}
 lazy_static = {version = "1.4", optional = true}
-futures = {version = "*", features = ["executor", "thread-pool"], optional = true}
+futures = {version = "0.3", features = ["executor", "thread-pool"], optional = true}
 arrayvec = "0.7"
 
 [dev-dependencies]
