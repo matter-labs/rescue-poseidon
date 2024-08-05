@@ -2,16 +2,19 @@
 name = "rescue_poseidon"
 description = "Sponge construction based Algebraic Hash Functions"
 keywords = ["poseidon", "rescue", "sponge"]
-license = "MIT OR Apache-2.0"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Sait Imamoglu <si@matterlabs.dev>"]
 edition = "2021"
+license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+derivative = "2"
 
-franklin_crypto = {package = "franklin-crypto", features = ["plonk"], version = "=0.1.0" }
+typemap_rev = "0.3"
+lazy_static = "1.4"
+franklin_crypto = {package = "franklin-crypto", features = ["plonk"], version = "=0.2.0" }
 num-bigint = "0.3"
 num-integer = "0.1"
 num-iter = "0.1"
@@ -24,9 +27,10 @@ addchain = "0.2"
 smallvec = "1.9"
 blake2 = "0.10"
 rayon = {version = "1.5", optional = true}
-lazy_static = {version = "1.4", optional = true}
+# lazy_static = {version = "1.4", optional = true}
 futures = {version = "0.3", features = ["executor", "thread-pool"], optional = true}
 arrayvec = "0.7"
+log = "0.4.19"
 
 [dev-dependencies]
 # reference poseidon does not uses specialization so some tests will fail.
@@ -49,7 +53,7 @@ hex = "0.4"
 [features]
 default = []
 rayon = ["dep:rayon"]
-futures = ["dep:lazy_static", "dep:futures"]
+futures = ["dep:futures"]
 
 [[bench]]
 name = "benches"

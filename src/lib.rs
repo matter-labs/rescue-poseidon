@@ -1,8 +1,11 @@
-mod circuit;
+#![feature(allocator_api)]
+
+pub mod circuit;
 #[allow(dead_code)]
 mod common;
 mod sponge;
 pub mod poseidon;
+pub mod poseidon2;
 pub mod rescue;
 pub mod rescue_prime;
 #[cfg(test)]
@@ -23,6 +26,7 @@ pub use rescue::{params::RescueParams, rescue_hash};
 pub use rescue_prime::{params::RescuePrimeParams, rescue_prime_hash};
 pub use common::domain_strategy::DomainStrategy;
 
+pub extern crate franklin_crypto;
 
 pub trait BigArraySerde<'de>: Sized {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
