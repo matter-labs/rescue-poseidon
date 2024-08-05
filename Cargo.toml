@@ -2,6 +2,7 @@
 name = "rescue_poseidon"
 description = "Sponge construction based Algebraic Hash Functions"
 keywords = ["poseidon", "rescue", "sponge"]
+license = "MIT OR Apache-2.0"
 version = "0.5.0"
 authors = ["Sait Imamoglu <si@matterlabs.dev>"]
 edition = "2021"
