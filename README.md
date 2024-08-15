@@ -1,3 +1,7 @@
+> [!WARNING]
+> This crate has been archived. Development has moved to the [zksync-crypto](https://github.com/matter-labs/zksync-crypto) repository.
+> Please use it instead.
+
 # Rescue and Poseidon
 ## Overview
 This repo contains implementations of arithmetization oriented hash functions(Rescue, Poseidon, Rescue Prime) that constructed by a sponge construction over prime field for both out-of circuits and in-circuit usages. Each algebraic hash function uses same sponge construction with different round function or permutation function. Gadgets are optimal in the constraint systems while also supporting different scalar fields which supported by bellman. 
